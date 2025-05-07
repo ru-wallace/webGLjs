@@ -32,15 +32,12 @@ class PlaneList {
     };
 
     updateLocation(index, deltaTime) {
-        console.log("Updating location for plane at index: " + index);
-        console.log("Vertical speed: " + this.verticalSpeeds[index] + ", speed: " + this.speeds[index] + ", heading: " + this.headings[index]);
         var vSpeedFpS = this.verticalSpeeds[index] / 60; // convert fpm to fps
         var speedNMpS = this.speeds[index] / 3600; // convert knots to nautical miles per second
-        console.log("vSpeedFpS: " + vSpeedFpS + ", speedNMpS: " + speedNMpS);
+      
         var northSouthSpeed = speedNMpS * Math.cos(this.headings[index] * Math.PI / 180); //component of speed in the north-south direction
         var eastWestSpeed = speedNMpS * Math.sin(this.headings[index] * Math.PI / 180); // component of speed in the east-west direction
 
-        console.log("northSouthSpeed: " + northSouthSpeed + ", eastWestSpeed: " + eastWestSpeed);
         var latChange = northSouthSpeed * deltaTime / 60; // change in latitude (in degrees). 1 degree = 60 nautical miles
         var altChange = vSpeedFpS * deltaTime; // change in altitude (in feet)
         
@@ -50,12 +47,11 @@ class PlaneList {
         var middleAltitudeNM = middleAltitude * FEET_TO_NAUTICAL_MILES; // average altitude in nautical miles
 
         var radius = EARTH_RADIUS_NAUTICAL_MILES + middleAltitudeNM; // radius of the earth at the plane's altitude in nautical miles
-        console.log("radius: " + radius + ", middleAltitudeNM: " + middleAltitudeNM);
+
         //calculate how much to change longitude based on latitude
         var latInRadians = this.latitudes[index] * Math.PI / 180; // convert to radians
         
         var lonChange = eastWestSpeed * deltaTime / (Math.cos(latInRadians) * radius) * (180 / Math.PI); // change in longitude (in degrees). 1 degree = 60 nautical miles
-        console.log("latChange: " + latChange + ", lonChange: " + lonChange + ", newAltitude: " + newAltitude);
         this.altitudes[index] = newAltitude; // update altitude
         this.latitudes[index] += latChange; // update latitude
         this.longitudes[index] += lonChange; // update longitude

@@ -17,18 +17,12 @@ class ATCMap {
     }
 
     latLonToXY(lat, lon) {
-        console.log("widthPx: " + this.widthPx);
-        console.log("heightPx: " + this.heightPx);
-        console.log("minLat: " + this.minLat);
-        console.log("maxLat: " + this.maxLat);
-        console.log("minLon: " + this.minLon);
-        console.log("maxLon: " + this.maxLon);
+
         
         const x = ((lon - this.minLon) / (this.maxLon - this.minLon)) * this.widthPx;
         const y = this.heightPx - (((lat - this.minLat) / (this.maxLat - this.minLat)) * this.heightPx);
 
-        console.log("lat: " + lat + "-> y: " + y);
-        console.log("lon: " + lon + "-> x: " + x);
+
         return { x, y };
     }
 
@@ -81,6 +75,34 @@ class ATCMap {
         indices.push((numPoints - 1) * 2, (numPoints - 1) * 2 + 1, 0);
         indices.push((numPoints - 1) * 2 + 1, 1, 0);
 
+        return indices;
+    }
+
+    generatePlaneTrianglePoints(lat, lon, speed, heading, scale) {
+        const center = this.latLonToXY(lat, lon);
+        const points = [];
+
+        const angle = (heading-90) * Math.PI / 180; // Rotate by 90 degrees to get the plane's orientation
+        const leftPointAngle = angle + Math.PI / 2; // Left point angle
+        const rightPointAngle = angle - Math.PI / 2; // Right point angle
+        const x1 = center.x + (10*scale) * Math.cos(angle);
+        const y1 = center.y + (10*scale) * Math.sin(angle);
+
+        const x2 = center.x + (scale) * Math.cos(leftPointAngle);
+        const y2 = center.y + (scale) * Math.sin(leftPointAngle);
+
+        const x3 = center.x + (scale) * Math.cos(rightPointAngle);
+        const y3 = center.y + (scale) * Math.sin(rightPointAngle);
+        
+        points.push(center.x, center.y, x1, y1, x2, y2, x3, y3); // 0 1 2 3
+
+        return points;
+    }
+
+    generatePlaneTriangleIndices(planePoints) {
+        const indices = [0,1,2,0,3,1];
+
+        
         return indices;
     }
 

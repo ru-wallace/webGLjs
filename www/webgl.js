@@ -1,5 +1,5 @@
 import { initBuffers } from "./init-buffers.js";
-import { drawScene } from "./draw-scene.js";
+import { bufferCircleIndices, bufferCirclePoints, bufferTrianglePoints, bufferTriangleIndices, bufferPointsData, bufferIndicesData, clearCanvas, createMatrix, drawScene, enableDepthTest, setViewport } from "./draw-scene.js";
 import { ATCMap } from "./map.js";
 import { PlaneList, EARTH_RADIUS_NAUTICAL_MILES, FEET_TO_NAUTICAL_MILES } from "./planes.js";
 
@@ -78,7 +78,8 @@ async function main() {
     map.minLon = -4.6774;
     map.maxLon = -4.1494;
 
-    planes.addPlane("BAW123", "Boeing 737", "1234", 55.8, -4.5, 30000, 500, 90, 0);
+  planes.addPlane("BAW123", "Boeing 737", "1234", 55.8, -4.5, 30000, 500, 90, 0);
+  planes.addPlane("BAW456", "Boeing 747", "5678", 55.8, -4.6, 30000, 400, 105, 0);
 
     if (!gl) {
         alert('Failed to get the rendering context for WebGL');
@@ -127,8 +128,21 @@ async function main() {
 
     }
 
-    let nElements = circleIndices.length;
-    const buffers = initBuffers(gl, programInfo, circlePoints, circleIndices);
+
+
+
+  let trianglePoints = map.generatePlaneTrianglePoints(planes.latitudes[0], planes.longitudes[0], planes.speeds[0], planes.headings[0], 5);
+  let triangleIndices = map.generatePlaneTriangleIndices(trianglePoints);
+  
+  let nVertices = circlePoints.length + trianglePoints.length;
+  let nIndices = circleIndices.length + triangleIndices.length;
+
+  let nElements = circleIndices.length + triangleIndices.length;
+  const buffers = initBuffers(gl, programInfo, circlePoints, circleIndices, trianglePoints, triangleIndices);
+
+
+  bufferPointsData(gl, buffers, circlePoints, trianglePoints);
+  bufferIndicesData(gl, buffers, circleIndices, triangleIndices);
     // const positions = [
     //   900, 800, 
     //   100, 900,
@@ -140,29 +154,49 @@ async function main() {
     // const buffers = initBuffers(gl, programInfo, positions, indices);
     
 
-    let then = 0;
+  let then = 0;
 
-    // Draw the scene repeatedly
-    function render(now) {
+  // Draw the scene repeatedly
+  bufferCirclePoints(gl, buffers.position, circlePoints);
+  bufferCircleIndices(gl, buffers.index, circleIndices);
+  bufferTrianglePoints(gl, buffers.position, trianglePoints, circlePoints);
+  bufferTriangleIndices(gl, buffers.index, triangleIndices, circleIndices);
+  let matrix = createMatrix(gl);
+  let color = [0.0, 1.0, 0.0, 1.0]; // RGBA color for the circle
+
+  function render(now) {
+    
     now *= 0.001; // convert to seconds
+    
     deltaTime = now - then;
     then = now;
+    clearCanvas(gl);
+    setViewport(gl);
 
-    planes.updateLocation(0, deltaTime); // update plane locations
-    circlePoints = map.generateCirclePoints(planes.latitudes[0], planes.longitudes[0], circleRadiusPx, circleNumPoints, circleLineThicknessPx);
-    bufferData(gl, buffers.position, circlePoints);
-    
-    drawScene(gl, programInfo, buffers, nElements);
-    console.log(planes.getPlaneByIndex(0));
-    squareRotation += deltaTime;
+    enableDepthTest(gl);
 
-    requestAnimationFrame(render);
+    for (let i = 0; i < planes.nPlanes; i++) {
+
+      planes.updateLocation(i, deltaTime); // update plane locations
+      circlePoints = map.generateCirclePoints(planes.latitudes[i], planes.longitudes[i], circleRadiusPx, circleNumPoints, circleLineThicknessPx);
+      trianglePoints = map.generatePlaneTrianglePoints(planes.latitudes[i], planes.longitudes[i], planes.speeds[i], planes.headings[i], 30);
+      drawScene(gl, programInfo, buffers, nElements, circlePoints, trianglePoints, matrix, color);
     }
+    // planes.updateLocation(0, deltaTime); // update plane locations
+    // circlePoints = map.generateCirclePoints(planes.latitudes[0], planes.longitudes[0], circleRadiusPx, circleNumPoints, circleLineThicknessPx);
+    // bufferData(gl, buffers.position, circlePoints);
+    
+    // drawScene(gl, programInfo, buffers, nElements);
+    // console.log(planes.getPlaneByIndex(0));
+    // squareRotation += deltaTime;
+    if (now < 10) {
+      
+    
+      requestAnimationFrame(render);
+    }
+  }
     requestAnimationFrame(render);
 
 }
 
-function bufferData(gl, buffer, data) {
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
-}
+

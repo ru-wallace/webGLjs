@@ -1,14 +1,15 @@
-function initBuffers(gl, programInfo, circlePoints, circleIndices) {
+function initBuffers(gl, programInfo, circlePoints, trianglePoints, circleIndices, triangleIndices) {
 
-  const positionBuffer = initPositionBuffer(gl, circlePoints);
-  //const vao = initVAO(gl);
-  //setupVertexAttribPointer(gl, programInfo, positionBuffer, programInfo.attribLocations.vertexPosition, 2);
-  const indexBuffer = initIndexBuffer(gl, circleIndices);
+  const positionBuffer = initPositionBuffer(gl);
+  const vao = initVAO(gl);
+  setupVertexAttribPointer(gl, programInfo, positionBuffer, programInfo.attribLocations.vertexPosition, 2);
+  gl.bindVertexArray(vao);
+  const indexBuffer = initIndexBuffer(gl, circleIndices, triangleIndices);
   //const colorBuffer = initColorBuffer(gl);
   return {
     position: positionBuffer,//vbo
     index: indexBuffer,//ebo
-   // vao: vao,//vao
+    vao: vao,//vao
     //color: colorBuffer,
   };
 }
@@ -38,7 +39,7 @@ function setupVertexAttribPointer(gl, programInfo, buffers) {
   );
 }
   
-function initPositionBuffer(gl, circlePoints) {
+function initPositionBuffer(gl) {
   // Create a buffer for the square's positions.
   const positionBuffer = gl.createBuffer();
   
@@ -47,24 +48,24 @@ function initPositionBuffer(gl, circlePoints) {
   gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
 
   // Now create an array of positions for the square.
-  const positions = circlePoints;
-  console.log("positions");
-  console.log(new Float32Array(positions));
+  // const positions = circlePoints;
+  // console.log("positions");
+  // console.log(new Float32Array(positions));
   // Now pass the list of positions into WebGL to build the
   // shape. We do this by creating a Float32Array from the
   // JavaScript array, then use it to fill the current buffer.
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
 
   return positionBuffer;
 }
   
 export { initBuffers };
 
-function initIndexBuffer(gl, circleIndices) {
+function initIndexBuffer(gl) {
+  
     const indexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(circleIndices), gl.STATIC_DRAW);
-    return indexBuffer;
+ return indexBuffer;
 }
 
 function initColorBuffer(gl) {
