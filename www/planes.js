@@ -40,6 +40,7 @@ class PlaneList {
     removeOutOfBounds = false; // remove planes out of bounds
     boundsRadius = 10000000;
     boundsCenter = { lat: 0, lon: 0 };
+    selectedPlaneIndex = -1; // index of the selected plane
 
     constructor(maxPlanes, maxHistory, historyDistance, removeOutOfBounds=false) {
         this.maxPlanes = maxPlanes;
@@ -59,6 +60,32 @@ class PlaneList {
         this.historyDistance = historyDistance; // minimum distance to add a new position to the history
         this.removeOutOfBounds = removeOutOfBounds; // remove planes out of bounds
     };
+
+    selectPlane(index) {
+        if (index >= 0 && index < this.nPlanes) {
+            this.selectedPlaneIndex = index; // set selected plane index
+        } else {
+            console.log("Invalid index. Cannot select plane.");
+        }
+    }
+    deselectPlane() {
+        this.selectedPlaneIndex = -1; // deselect plane
+    }
+    getSelectedPlane() {
+        if (this.selectedPlaneIndex >= 0 && this.selectedPlaneIndex < this.nPlanes) {
+            return this.getPlaneByIndex(this.selectedPlaneIndex); // return selected plane
+        } else {
+            return null; // no plane selected
+        }
+    }
+
+    getSelectedPlaneIndex() {
+        return this.selectedPlaneIndex; // return selected plane index
+    }
+
+    isSelectedPlane(index) {
+        return this.selectedPlaneIndex === index; // return true if the plane is selected
+    }
 
     updatePlane(index, deltaTime) {
         var vSpeedFpS = this.verticalSpeeds[index] / 60; // convert fpm to fps
@@ -234,6 +261,9 @@ class PlaneList {
         if (index >= 0 && index < this.nPlanes) {
             delete this.indexLookup[this.flightNumbers[index]]; // remove from lookup table
 
+            if (this.isSelectedPlane(index)) {
+                this.deselectPlane(); // deselect plane if it is selected
+            }
             // replace the plane at the index with the last plane in the list (saves moving all planes in memory)
             this.flightNumbers[index] = this.flightNumbers[this.nPlanes - 1];
             this.targetAltitudes[index] = this.targetAltitudes[this.nPlanes - 1];
@@ -250,6 +280,7 @@ class PlaneList {
             this.positionHistories[index] = this.positionHistories[this.nPlanes - 1]; // move the position history to the new index
 
             this.indexLookup[this.flightNumbers[index]] = index; // update lookup table
+
             this.nPlanes--;
 
             this.flightNumbers[this.nPlanes] = null;

@@ -24,6 +24,7 @@ const PLANE_CIRCLE_COLOR_SELECTED = [1.0, 1.0, 1.0, 1.0]; // RGBA color for the 
 const PLANE_CIRCLE_COLOR_WARNING = [1.0, 0.0, 0.0, 1.0]; // RGBA color for the circle when in warning
 const PLANE_TRIANGLE_SCALE = 30; // Triangle scale in pixels
 const PLANE_POINTER_SCALE = 1; // Pointer scale in pixels
+const PLANE_TARGET_POINTER_COLOR = [1.0, 1.0, 0.0, 1.0]; // RGBA color for the target pointer
 
 const PLANE_TEXT_FONT_SIZE = 10; // Font size in pixels
 const PLANE_TEXT_COLOR ="rgba(0, 255, 0, 1)"; // Text color
@@ -50,7 +51,8 @@ var mouseY = 0;
 var mouseDown = false;
 var mouseDownX = 0;
 var mouseDownY = 0;
-
+var hoveredPlane = -1;
+var hoveredPlaneDistance = 0;
 
 main();
 
@@ -143,8 +145,21 @@ function initShaderProgram(gl, vsSource, fsSource) {
       return;
     }
     let planePosition = map.latLonToXY(plane.latitude, plane.longitude);
-
+    let planeHeading = plane.heading;
     let circleColor = color;
+
+    let dots = programInfo.shapes.dots;
+
+    for (let historyIndex = 0; historyIndex < plane.positionHistory.length; historyIndex++) {
+      let historyPoint = plane.positionHistory.getPosition(historyIndex);
+      let distance = plane.positionHistory.calculateDistance(historyPoint.latitude, historyPoint.longitude, plane.latitude, plane.longitude);
+      let scale = 1 - (distance / (historyDistanceInterval*maxHistoryPoints));
+      let historyPosition = map.latLonToXY(historyPoint.latitude, historyPoint.longitude);
+      let historyMatrix = createMatrix(gl, planeHeading, historyPosition.x, historyPosition.y, scale, scale);
+      drawScene(gl, programInfo, buffers, dots.indicesStartIndex, dots.indices.length, historyMatrix, PLANE_CIRCLE_COLOR);
+    }
+
+
 
     let mouseLatLon = map.xyToLatLon(mouseX, mouseY);
 
@@ -152,12 +167,40 @@ function initShaderProgram(gl, vsSource, fsSource) {
     //console.log("plane  x/y: " + planePosition.x + " " + planePosition.y + " \nMouse x/y: " + mouseX + " " + mouseY);
     //console.log("Distance: " + distance);
 
-    let mouseOverScale = 1.0;
+    let mouseOver = (distance < PLANE_CIRCLE_RADIUS) ? true : false;
+    
+    
+
     if (distance < PLANE_CIRCLE_RADIUS) {
-      circleColor = [1.0, 1.0, 1.0, 1.0]; // red
-      mouseOverScale = 1.5;
+      if (hoveredPlane != plane.flightNumber) {
+        if (hoveredPlane != -1) {
+          if (distance < hoveredPlaneDistance) {
+            hoveredPlane = plane.flightNumber;
+            hoveredPlaneDistance = distance;
+            console.log("Hovered plane: " + hoveredPlane + " distance: " + distance);
+          }
+        } else {
+          hoveredPlane = plane.flightNumber;
+          hoveredPlaneDistance = distance;
+          console.log("Hovered plane: " + hoveredPlane + " distance: " + distance);
+        }
+      }
+    } else {
+      if (hoveredPlane == plane.flightNumber) {
+        hoveredPlane = -1;
+        hoveredPlaneDistance = 0;
+        console.log("Reset hovered plane: " + hoveredPlane);
+      }
     }
-    let planeHeading = plane.heading;
+
+    let hovered = (hoveredPlane == plane.flightNumber) ? true : false;
+    let mouseOverScale = hovered ? 1.5 : 1.0;
+
+    if (hovered) {
+      circleColor = PLANE_CIRCLE_COLOR_SELECTED;
+    }
+    
+
     matrix = createMatrix(gl,planeHeading, planePosition.x, planePosition.y, 1, 1);
     //circlePoints = map.generateCentreCirclePoints(circleRadiusPx, circleNumPoints, circleLineThicknessPx);
     //trianglePoints = map.generateCentreTrianglePoints(5);
@@ -169,18 +212,15 @@ function initShaderProgram(gl, vsSource, fsSource) {
 
     let pointer = programInfo.shapes.pointer;
     matrix = createMatrix(gl,planeHeading, planePosition.x, planePosition.y, 1, plane.speed*0.07*mouseOverScale);
-    drawScene(gl, programInfo, buffers, pointer.indicesStartIndex, pointer.indices.length, matrix, color);
+    drawScene(gl, programInfo, buffers, pointer.indicesStartIndex, pointer.indices.length, matrix, circleColor);
 
-    let dots = programInfo.shapes.dots;
-
-    for (let historyIndex = 0; historyIndex < plane.positionHistory.length; historyIndex++) {
-      let historyPoint = plane.positionHistory.getPosition(historyIndex);
-      let distance = plane.positionHistory.calculateDistance(historyPoint.latitude, historyPoint.longitude, plane.latitude, plane.longitude);
-      let scale = 1 - (distance / (historyDistanceInterval*maxHistoryPoints));
-      let historyPosition = map.latLonToXY(historyPoint.latitude, historyPoint.longitude);
-      let historyMatrix = createMatrix(gl, planeHeading, historyPosition.x, historyPosition.y, scale, scale);
-      drawScene(gl, programInfo, buffers, dots.indicesStartIndex, dots.indices.length, historyMatrix, color);
+    if (mouseOver && plane.targetHeading != plane.heading) {
+      let targetHeading = plane.targetHeading;
+      let targetMatrix = createMatrix(gl, targetHeading, planePosition.x, planePosition.y, 1, plane.speed*0.07*mouseOverScale);
+      drawScene(gl, programInfo, buffers, pointer.indicesStartIndex, pointer.indices.length, targetMatrix, PLANE_TARGET_POINTER_COLOR);
     }
+
+
   }
 
   function drawPlaneText(textContext, plane) {
@@ -230,12 +270,55 @@ async function main() {
     pause = !pause;
     if (pause) {
       textCanvas.style.cursor = "pointer";
-      textCanvas.style.backgroundColor = "rgba(255, 0, 0, 0.5)";
+      textCanvas.style.backgroundColor = "rgba(255, 0, 0, 0.1)";
     } else {
       textCanvas.style.cursor = "default";
-      textCanvas.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
+      textCanvas.style.backgroundColor = "rgba(0, 0, 0, 0.0)";
     }
   }
+
+  textCanvas.onwheel = function (event) {
+    event.preventDefault();
+    console.log("Mouse wheel event: " + event.deltaX + " " + event.deltaY);
+    console.log("Hovered plane: " + hoveredPlane);
+    if (hoveredPlane != -1) {
+      let index = planes.getPlaneIndex(hoveredPlane);
+      let targetAltitude = planes.getPlaneByIndex(index).targetAltitude;
+      let targetHeading = planes.getPlaneByIndex(index).targetHeading;
+
+      let adjustedX = 0;
+      if (event.deltaX != 0) {
+        adjustedX =5* event.deltaX / Math.abs(event.deltaX);
+      }
+      let adjustedY = 0;
+      if (event.deltaY != 0) {
+        adjustedY =5* event.deltaY/ Math.abs(event.deltaY);
+      }
+
+
+
+      console.log("Adjusted X: " + adjustedX + " Adjusted Y: " + adjustedY);
+      
+
+      let altitudeChange = adjustedY;
+      let headingChange = adjustedX;
+      let speedChange = 0;
+
+      if (event.shiftKey) {
+        altitudeChange = adjustedX;
+        headingChange = adjustedY;
+      } else if (event.ctrlKey) {
+        altitudeChange = 0;
+        headingChange = 0;
+        speedChange = adjustedY;
+      }
+
+      planes.setTargetAltitude(index, targetAltitude - altitudeChange*100);
+      planes.setTargetHeading(index, targetHeading + headingChange);
+      planes.setTargetSpeed(index, planes.getPlaneByIndex(index).targetSpeed - speedChange);
+    }
+  }
+
 
   resizeCanvasToDisplaySize(canvas);
   const gl = canvas.getContext('webgl2');
@@ -308,11 +391,11 @@ async function main() {
   planes.addPlane("BAW456", "Boeing 747", "5678", randomLatLon.lat, randomLatLon2.lon, 6000, randomSpeed2, 270, 0);
 
   planes.setTargetFlightLevel(0, 60);
-  //planes.setTargetHeading(0, 90);
+  planes.setTargetHeading(0, 90);
   planes.setTargetSpeed(0, 500);
 
   planes.setTargetFlightLevel(1, 60);
-  //planes.setTargetHeading(1, 185);
+  planes.setTargetHeading(1, 185);
   planes.setTargetSpeed(1, 200);
 
   if (!gl) {
