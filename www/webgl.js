@@ -148,14 +148,15 @@ function initShaderProgram(gl, vsSource, fsSource) {
     let circleColor = color;
 
     let mouseLatLon = map.xyToLatLon(mouseX, mouseY);
-    console.log("Mouse Lat/Lon: " + mouseLatLon.lat + " " + mouseLatLon.lon);
-    console.log("Plane Lat/Lon: " + plane.latitude + " " + plane.longitude);
 
     let distance = map.calculateDistance(mouseLatLon.lat, mouseLatLon.lon, plane.latitude, plane.longitude);
     //console.log("plane  x/y: " + planePosition.x + " " + planePosition.y + " \nMouse x/y: " + mouseX + " " + mouseY);
     //console.log("Distance: " + distance);
+
+    let mouseOverScale = 1.0;
     if (distance < PLANE_CIRCLE_RADIUS) {
       circleColor = [1.0, 0.0, 0.0, 1.0]; // red
+      mouseOverScale = 1.5;
     }
     let planeHeading = plane.heading;
     matrix = createMatrix(gl,planeHeading, planePosition.x, planePosition.y, 1, 1);
@@ -168,7 +169,7 @@ function initShaderProgram(gl, vsSource, fsSource) {
     drawScene(gl, programInfo, buffers, circle.indicesStartIndex, nElements, matrix, circleColor);
 
     let pointer = programInfo.shapes.pointer;
-    matrix = createMatrix(gl,planeHeading, planePosition.x, planePosition.y, 1, plane.speed*0.07);
+    matrix = createMatrix(gl,planeHeading, planePosition.x, planePosition.y, 1, plane.speed*0.07*mouseOverScale);
     drawScene(gl, programInfo, buffers, pointer.indicesStartIndex, pointer.indices.length, matrix, color);
 
     let dots = programInfo.shapes.dots;
@@ -191,10 +192,31 @@ function initShaderProgram(gl, vsSource, fsSource) {
     textContext.fillStyle = PLANE_TEXT_COLOR;
     textContext.fillText(plane.flightNumber, anchorX,anchorY);
     textContext.fillText(plane.type, anchorX, anchorY + PLANE_TEXT_FONT_SIZE);
-    textContext.fillText(Math.round(plane.speed), anchorX, anchorY + PLANE_TEXT_FONT_SIZE*3);
+    let speedText = Math.round(plane.speed) + "KTS";
+    if (Math.abs(plane.speed - plane.targetSpeed) > 0.1) {
+      speedText += "=>" + Math.round(plane.targetSpeed) + "KTS";
+    }
+    textContext.fillText(speedText, anchorX, anchorY + PLANE_TEXT_FONT_SIZE*2);
+
+
     const flightLevel = Math.round(plane.altitude / 100);
-    textContext.fillText("FL"+flightLevel.toFixed(0), anchorX, anchorY + PLANE_TEXT_FONT_SIZE*4);
-    textContext.fillText(Math.round(plane.heading)+"\u{00b0}", anchorX, anchorY + PLANE_TEXT_FONT_SIZE*5);
+    let flightLevelText = "FL" + flightLevel.toFixed(0);
+    const targetFlightLevel = Math.round(plane.targetAltitude / 100);
+    if (flightLevel != targetFlightLevel) {
+      flightLevelText += "=>" + targetFlightLevel + " ()";
+      flightLevelText += Math.round(plane.verticalSpeed) + "FPM)";
+    }
+    textContext.fillText(flightLevelText, anchorX, anchorY + PLANE_TEXT_FONT_SIZE*3);
+
+    const heading = Math.round(plane.heading);
+    let headingText = heading + "\u{00b0}";
+    const targetHeading = Math.round(plane.targetHeading);
+    if (heading != targetHeading) {
+      headingText += "=>" + targetHeading + "\u{00b0}";
+    }
+    textContext.fillText(headingText, anchorX, anchorY + PLANE_TEXT_FONT_SIZE*5);
+
+    
   }
 
 
@@ -266,10 +288,15 @@ async function main() {
   let centreLat = (map.minLat + map.maxLat) / 2;
   let centreLon = (map.minLon + map.maxLon) / 2;
 
-  let randomLat = Math.random() * (map.maxLat - map.minLat) + map.minLat;
-  let randomLon = Math.random() * (map.maxLon - map.minLon) + map.minLon;
-  let randomLat2 = Math.random() * (map.maxLat - map.minLat) + map.minLat;
-  let randomLon2 = Math.random() * (map.maxLon - map.minLon) + map.minLon;
+  let randomDirection = Math.round(Math.random() * 360);
+  let randomDirection2 = Math.round(Math.random() * 360);
+  let randomRadius = Math.round(Math.random() * RADAR_CIRCLE_RADIUS);
+  let randomRadius2 = Math.round(Math.random() * RADAR_CIRCLE_RADIUS);
+
+
+  let randomLatLon = map.calculatePoint(centreLat, centreLon, randomDirection, randomRadius);
+  let randomLatLon2 = map.calculatePoint(centreLat, centreLon, randomDirection2, randomRadius2);
+
 
   let randomHeading = Math.round(Math.random() * 360);
   let randomHeading2 = Math.round(Math.random() * 360);
@@ -277,8 +304,9 @@ async function main() {
   let randomSpeed = Math.round(Math.random() * 900) + 100;
   let randomSpeed2 = Math.round(Math.random() * 900) + 100;
 
-  planes.addPlane("BAW123", "Boeing 737", "1234", randomLat, randomLon, 6000, randomSpeed,randomHeading, -1000);
-  //planes.addPlane("BAW456", "Boeing 747", "5678", randomLat2, randomLon2, 10000, randomSpeed2, randomHeading2, 0);
+  planes.addPlane("BAW123", "Boeing 737", "1234", randomLatLon.lat, randomLatLon.lon, 6000, randomSpeed,randomHeading, -1000);
+
+  planes.addPlane("BAW456", "Boeing 747", "5678", randomLatLon2.lat, randomLatLon2.lon, 10000, randomSpeed2, randomHeading2, 0);
 
 
 
@@ -400,6 +428,10 @@ async function main() {
   planes.setTargetFlightLevel(0, 30);
   planes.setTargetHeading(0, 90);
   planes.setTargetSpeed(0, 500);
+
+  planes.setTargetFlightLevel(1, 40);
+  planes.setTargetHeading(1, 125);
+  planes.setTargetSpeed(1, 200);
 
   function render(now) {
     resizeCanvasToDisplaySize(canvas);

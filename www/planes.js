@@ -130,6 +130,12 @@ class PlaneList {
             } else {
                 this.headings[index] = this.targetHeadings[index]; // stop turning
             }
+            if (this.headings[index] > 360) {
+                this.headings[index] -= 360; // wrap around
+            }
+            else if (this.headings[index] < 0) {
+                this.headings[index] += 360; // wrap around
+            }
         }
 
 
@@ -157,6 +163,11 @@ class PlaneList {
         }
     }
     setTargetHeading(index, targetHeading) {
+        if (targetHeading > 360) {
+            targetHeading -= 360; // wrap around
+        } else if (targetHeading < 0) {
+            targetHeading += 360; // wrap around
+        }
         if (index >= 0 && index < this.nPlanes) {
             this.targetHeadings[index] = targetHeading; // set target heading to current heading
         } else {
@@ -168,7 +179,14 @@ class PlaneList {
         if (index >= 0 && index < this.nPlanes) {
             if (targetAltitudeFt) this.targetAltitudes[index] = targetAltitudeFt; // set target altitude to current altitude
             if (targetSpeedKts) this.targetSpeeds[index] = targetSpeedKts; // set target speed to current speed
-            if (targetHeading) this.targetHeadings[index] = targetHeading; // set target heading to current heading
+            if (targetHeading) {
+                if (targetHeading > 360) {
+                    targetHeading -= 360; // wrap around
+                } else if (targetHeading < 0) {
+                    targetHeading += 360; // wrap around
+                }
+                this.targetHeadings[index] = targetHeading; // set target heading to current heading
+            }
         } else {
             console.log("Invalid index. Cannot set target params.");
         }
@@ -263,9 +281,13 @@ class PlaneList {
                 latitude: this.latitudes[index],
                 longitude: this.longitudes[index],
                 altitude: this.altitudes[index],
+                targetAltitude: this.targetAltitudes[index],
                 speed: this.speeds[index],
+                targetSpeed: this.targetSpeeds[index],
                 heading: this.headings[index],
+                targetHeading: this.targetHeadings[index],
                 verticalSpeed: this.verticalSpeeds[index],
+
                 positionHistory: this.positionHistories[index] // return the history array
             };
         } else {
