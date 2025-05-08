@@ -1,10 +1,10 @@
-function initBuffers(gl, programInfo, circlePoints, trianglePoints, circleIndices, triangleIndices) {
+function initBuffers(gl, programInfo) {
 
   const positionBuffer = initPositionBuffer(gl);
   const vao = initVAO(gl);
   setupVertexAttribPointer(gl, programInfo, positionBuffer, programInfo.attribLocations.vertexPosition, 2);
   gl.bindVertexArray(vao);
-  const indexBuffer = initIndexBuffer(gl, circleIndices, triangleIndices);
+  const indexBuffer = initIndexBuffer(gl);
   //const colorBuffer = initColorBuffer(gl);
   return {
     position: positionBuffer,//vbo
@@ -27,7 +27,7 @@ function setupVertexAttribPointer(gl, programInfo, buffers) {
   const stride = 0; // how many bytes to get from one set of values to the next
   // 0 = use type and numComponents above
   const offset = 0; // how many bytes inside the buffer to start from
-
+  gl.bindVertexArray(buffers.vao);
   gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
   gl.vertexAttribPointer(
     programInfo.attribLocations.vertexPosition,
@@ -38,7 +38,7 @@ function setupVertexAttribPointer(gl, programInfo, buffers) {
     offset,
   );
 }
-  
+
 function initPositionBuffer(gl) {
   // Create a buffer for the square's positions.
   const positionBuffer = gl.createBuffer();
@@ -54,7 +54,6 @@ function initPositionBuffer(gl) {
   // Now pass the list of positions into WebGL to build the
   // shape. We do this by creating a Float32Array from the
   // JavaScript array, then use it to fill the current buffer.
-
 
   return positionBuffer;
 }
