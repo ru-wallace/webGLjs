@@ -141,6 +141,12 @@ class PlaneList {
 
     }
 
+    updateAllPlanes(deltaTime) {
+        for (var i = 0; i < this.nPlanes; i++) {
+            this.updatePlane(i, deltaTime); // update each plane
+        }
+    }
+
     setTargetFlightLevel(index, setTargetFlightLevel) {
         if (index >= 0 && index < this.nPlanes) {
             this.targetAltitudes[index] = setTargetFlightLevel * 100; // set target altitude to current altitude
@@ -334,6 +340,60 @@ class PlaneList {
         return radians * (180 / Math.PI);
     }
 
+    calculateHorizontalSeparation(index1, index2) {
+        if (index1 >= 0 && index1 < this.nPlanes && index2 >= 0 && index2 < this.nPlanes) {
+            var lat1 = this.latitudes[index1];
+            var lon1 = this.longitudes[index1];
+            var lat2 = this.latitudes[index2];
+            var lon2 = this.longitudes[index2];
+            return this.calculateDistance(lat1, lon1, lat2, lon2); // in nautical miles
+        } else {
+            console.log("Invalid index. Cannot calculate horizontal separation.");
+            return null;
+        }
+    }
+
+    getPlanesWithinVerticalSeparation(index1, verticalSeparation) {
+        if (index1 >= 0 && index1 < this.nPlanes) {
+            var planes = [];
+            for (var i = 0; i < this.nPlanes; i++) {
+                if (i !== index1) {
+                 var altDiff = Math.abs(this.altitudes[index1] - this.altitudes[i]);
+                   // log altitude difference
+                    if (altDiff <= verticalSeparation) {
+                        planes.push(i); // add plane to list
+                    }
+                }
+            }
+            return planes; // return list of planes within vertical separation
+        } else {
+            console.log("Invalid index. Cannot get planes within vertical separation.");
+            return null;
+        }
+    }
+
+    getSeparationIncidents(minVerticalSeparation, minHorizontalSeparation) {
+        var incidents = []; // array to hold incidents
+        for (var i = 0; i < this.nPlanes; i++) {
+            //console.log("Checking plane " + i + " with altitude " + this.altitudes[i]); // log plane altitude
+            var planes = this.getPlanesWithinVerticalSeparation(i, minVerticalSeparation); // get planes within vertical separation of 1000 feet
+            //console.log("Planes within vertical separation of " + minVerticalSeparation + " feet: " + planes.length); // log planes within vertical separation
+            if (planes.length > 0) { // if there are planes within vertical separation
+                for (var j = 0; j < planes.length; j++) {
+                    var index2 = planes[j];
+                    var verticalSeparation = Math.abs(this.altitudes[i] - this.altitudes[index2]); // calculate vertical separation
+                    var horizontalSeparation = this.calculateHorizontalSeparation(i, index2); // calculate horizontal separation
+                    if (horizontalSeparation < minHorizontalSeparation) { // if horizontal separation is less than 3 nautical miles
+                        console.error("Incident detected between planes " + this.flightNumbers[i] + " and " + this.flightNumbers[index2] + " with horizontal separation of " + horizontalSeparation + " nautical miles and vertical separation of " + verticalSeparation + " feet"); // log incident
+                        incidents.push({ plane1: i, plane2: index2, horizontalSeparation: horizontalSeparation, verticalSeparation: verticalSeparation }); // add incident to list
+                    }
+                }
+            }
+        }
+        return incidents; // return list of incidents
+    }
+
+
 }
 
 
@@ -389,6 +449,8 @@ class PositionHistory {
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return R * c; // Distance in nautical miles
     }
+
+
 
     degreesToRadians(degrees) {
         return degrees * (Math.PI / 180);

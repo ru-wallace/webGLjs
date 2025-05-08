@@ -16,10 +16,12 @@ const RADAR_CIRCLE_COLOR = [0.0, 1.0, 0.0, 1.0]; // RGBA color for the circle
 
 const REMOVE_OUT_OF_BOUNDS_PLANES = true; // Remove planes that are out of bounds
 
-const PLANE_CIRCLE_RADIUS = 3; // Circle radius in nautical miles
+const PLANE_CIRCLE_RADIUS = 1.5; // Circle radius in nautical miles
 const PLANE_CIRCLE_NUM_POINTS = 100; // Number of points in the circle
 const PLANE_CIRCLE_LINE_THICKNESS = 2; // Circle line thickness in pixels
 const PLANE_CIRCLE_COLOR = [0.0, 1.0, 0.0, 1.0]; // RGBA color for the circle
+const PLANE_CIRCLE_COLOR_SELECTED = [1.0, 1.0, 1.0, 1.0]; // RGBA color for the circle when selected
+const PLANE_CIRCLE_COLOR_WARNING = [1.0, 0.0, 0.0, 1.0]; // RGBA color for the circle when in warning
 const PLANE_TRIANGLE_SCALE = 30; // Triangle scale in pixels
 const PLANE_POINTER_SCALE = 1; // Pointer scale in pixels
 
@@ -132,12 +134,9 @@ function initShaderProgram(gl, vsSource, fsSource) {
     drawScene(gl, programInfo, buffers, radarCircle.indicesStartIndex, radarCircle.indices.length, matrix, color);
   }
 
-  function drawPlane(gl, programInfo, buffers, planeList, matrix, index, color) {
+  function drawPlane(gl, programInfo, buffers, plane, matrix, color, historyDistanceInterval, maxHistoryPoints) {
 
-    planeList.updatePlane(index, deltaTime); // update plane locations
 
-    
-    let plane = planeList.getPlaneByIndex(index);
 
     if (plane === undefined || plane === null) {
       console.log("Plane is undefined or null");
@@ -155,7 +154,7 @@ function initShaderProgram(gl, vsSource, fsSource) {
 
     let mouseOverScale = 1.0;
     if (distance < PLANE_CIRCLE_RADIUS) {
-      circleColor = [1.0, 0.0, 0.0, 1.0]; // red
+      circleColor = [1.0, 1.0, 1.0, 1.0]; // red
       mouseOverScale = 1.5;
     }
     let planeHeading = plane.heading;
@@ -177,7 +176,7 @@ function initShaderProgram(gl, vsSource, fsSource) {
     for (let historyIndex = 0; historyIndex < plane.positionHistory.length; historyIndex++) {
       let historyPoint = plane.positionHistory.getPosition(historyIndex);
       let distance = plane.positionHistory.calculateDistance(historyPoint.latitude, historyPoint.longitude, plane.latitude, plane.longitude);
-      let scale = 1 - (distance / (planeList.historyDistance*planeList.maxHistory));
+      let scale = 1 - (distance / (historyDistanceInterval*maxHistoryPoints));
       let historyPosition = map.latLonToXY(historyPoint.latitude, historyPoint.longitude);
       let historyMatrix = createMatrix(gl, planeHeading, historyPosition.x, historyPosition.y, scale, scale);
       drawScene(gl, programInfo, buffers, dots.indicesStartIndex, dots.indices.length, historyMatrix, color);
@@ -304,11 +303,17 @@ async function main() {
   let randomSpeed = Math.round(Math.random() * 900) + 100;
   let randomSpeed2 = Math.round(Math.random() * 900) + 100;
 
-  planes.addPlane("BAW123", "Boeing 737", "1234", randomLatLon.lat, randomLatLon.lon, 6000, randomSpeed,randomHeading, -1000);
+  planes.addPlane("BAW123", "Boeing 737", "1234", randomLatLon.lat, randomLatLon.lon, 6000, randomSpeed,90, 0);
 
-  planes.addPlane("BAW456", "Boeing 747", "5678", randomLatLon2.lat, randomLatLon2.lon, 10000, randomSpeed2, randomHeading2, 0);
+  planes.addPlane("BAW456", "Boeing 747", "5678", randomLatLon.lat, randomLatLon2.lon, 6000, randomSpeed2, 270, 0);
 
+  planes.setTargetFlightLevel(0, 60);
+  //planes.setTargetHeading(0, 90);
+  planes.setTargetSpeed(0, 500);
 
+  planes.setTargetFlightLevel(1, 60);
+  //planes.setTargetHeading(1, 185);
+  planes.setTargetSpeed(1, 200);
 
   if (!gl) {
       alert('Failed to get the rendering context for WebGL');
@@ -425,13 +430,7 @@ async function main() {
   let matrix = createMatrix(gl, 0, 0, 0, 0, 0);
   let color = PLANE_CIRCLE_COLOR;
 
-  planes.setTargetFlightLevel(0, 30);
-  planes.setTargetHeading(0, 90);
-  planes.setTargetSpeed(0, 500);
 
-  planes.setTargetFlightLevel(1, 40);
-  planes.setTargetHeading(1, 125);
-  planes.setTargetSpeed(1, 200);
 
   function render(now) {
     resizeCanvasToDisplaySize(canvas);
@@ -442,10 +441,6 @@ async function main() {
     deltaTime = now - then;
     then = now;
 
-    if (pause) {
-      requestAnimationFrame(render);
-      return;
-    }
 
     textContext.clearRect(0, 0, textCanvas.width, textCanvas.height);
 
@@ -456,14 +451,39 @@ async function main() {
 
     drawRadarCircle(gl, programInfo, buffers, RADAR_CIRCLE_RADIUS, RADAR_CIRCLE_COLOR);
     
-    for (let i = 0; i < planes.nPlanes; i++) {
-      drawPlaneText(textContext, planes.getPlaneByIndex(i));
-      drawPlane(gl, programInfo, buffers, planes, matrix, i, color);
+    let separationIncidents = [];
+
+    if (!pause) {
+      planes.updateAllPlanes(deltaTime); // update all planes
+      separationIncidents = planes.getSeparationIncidents(1000, 3); // get separation incidents
     }
 
-    if (now < 55) {
-      requestAnimationFrame(render);
+    let planeSeparationIncidentBoolArray = new Array(planes.nPlanes).fill(false);
+
+    for (let i = 0; i < separationIncidents.length; i++) {
+      planeSeparationIncidentBoolArray[separationIncidents[i].plane1] = true;
+      planeSeparationIncidentBoolArray[separationIncidents[i].plane2] = true;
     }
+
+
+
+    for (let i = 0; i < planes.nPlanes; i++) {
+      if (!pause) {
+        planes.updatePlane(i, deltaTime); // update plane locations
+      }
+
+      let plane = planes.getPlaneByIndex(i);
+      if (plane === undefined || plane === null) {
+        continue;
+      }
+      let planeColor = planeSeparationIncidentBoolArray[i] ? PLANE_CIRCLE_COLOR_WARNING : PLANE_CIRCLE_COLOR;
+      drawPlane(gl, programInfo, buffers, plane, matrix, planeColor, planes.historyDistance, planes.maxHistory);
+      drawPlaneText(textContext, plane);
+    }
+
+
+      requestAnimationFrame(render);
+
   }
     requestAnimationFrame(render);
 
