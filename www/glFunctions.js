@@ -317,9 +317,10 @@ export class GLInstance {
 
     const runwayLocation = this.map.latLonToXY(runway.latitude, runway.longitude);
 
-    const runwayScale = runway.length / 10;
-    const runwayWidthScale = runway.width / 10;
-    const matrix = createMatrix(this.gl, runway.bearing, runwayLocation.x, runwayLocation.y, runwayScale, runwayWidthScale);
+    const runwayScale = this.map.distanceMetresToPixels(runway.length);
+    const runwayWidthScale = Math.max(this.map.distanceMetresToPixels(runway.width), 2);
+
+    const matrix = createMatrix(this.gl, runway.bearing+90, runwayLocation.x, runwayLocation.y, runwayScale, runwayWidthScale);
     this.drawScene(this.shapes.rectangle.elementStartIndex, this.shapes.rectangle.nIndices, matrix, color, 0);
   }
 

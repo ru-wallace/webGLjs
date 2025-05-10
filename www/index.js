@@ -46,9 +46,9 @@ async function main() {
 
   const navAids = [];
   navAids.push({
-    name: "VOR1",
-    latitude: 55.525140,
-    longitude: -4.245913,
+    name: "GOW",
+    latitude: 55.521381,
+    longitude: -4.26446,
     type: "VOR-DME",
     frequency: 115.5,
     range: 100,
@@ -62,9 +62,9 @@ async function main() {
       range: 100,
     },
     {
-      name: "IDB1",
-      latitude: east5nm.lat,
-      longitude: east5nm.lon,
+      name: "GLW",
+      latitude: 55.521117,
+      longitude: -4.260106,
       type: "IDB",
       frequency: 115.5,
       range: 100,
@@ -118,7 +118,7 @@ async function main() {
     },
     rectangle: {
       width: 1,
-      height: 5
+      height: 1
     },
     filledCircle: {
       radius: 1,

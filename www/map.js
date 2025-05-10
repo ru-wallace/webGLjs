@@ -99,6 +99,8 @@ class ATCMap {
     return latDistancePx;
   }
 
+
+
   distancePxToNM(distancePx) {
     const latRange = this.maxLat - this.minLat;
     const lonRange = this.maxLon - this.minLon;
@@ -107,7 +109,7 @@ class ATCMap {
   }
 
   distanceMetresToPixels(distanceMetres) {
-    console.log("convert metres to pixels: " + distanceMetres);
+
     const distanceNM = convert.metresToNauticalMiles(distanceMetres);
     return this.distanceNMToPixels(distanceNM);
   }
