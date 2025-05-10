@@ -71,6 +71,23 @@ async function main() {
     },
 
   );
+
+  const end05lat = 55.514853;
+  const end05lon = -4.265659;
+
+  const end23lon = -4.245913;
+  const end23lat = 55.524107;
+
+  const middlelat = (end05lat + end23lat) / 2;
+  const middlelon = (end05lon + end23lon) / 2;
+  const runways = [];
+  runways.push({
+    bearing: 50,
+    length: 2865,
+    width: 46,
+    latitude: middlelat,
+    longitude: middlelon,
+  });
   
   
 
@@ -147,6 +164,12 @@ async function main() {
       }
     }
 
+    for (let i = 0; i < runways.length; i++) {
+      let runway = runways[i];
+      let color = [0.5, 0.5, 0.5, 1];
+      glO.drawRunway(runway, color);
+    }
+
     let separationIncidents = [];
 
     if (!game.pause) {
@@ -181,7 +204,7 @@ async function main() {
           let historyPoint = plane.positionHistory.getPosition(j);
           let distance = geom.calculateDistance(historyPoint.latitude, historyPoint.longitude, plane.latitude, plane.longitude);
           //console.log("Distance: " + distance);
-          let scale = 1 - (distance / (game.planeList.historyDistance*game.planeList.maxHistory));
+          let scale = 2*(1 - (distance / (game.planeList.historyDistance*game.planeList.maxHistory)));
           glO.drawHistoryPoint(plane, j, [0.0, 0.8, 0.0, 1], scale);
         }
       }

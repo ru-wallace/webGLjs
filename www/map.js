@@ -357,14 +357,15 @@ class ATCMap {
     const pointerx1 = centre.x - (0.5 * width);
     const pointerx2 = centre.x + (0.5 * width);
 
-    const pointery1 = centre.y - height;
-    const pointery2 = centre.y + height;
-    points.push(centre.x, centre.y, pointerx1, pointery1, pointerx2, pointery1, pointerx1, pointery2); // 0 1 2 3
+    const pointery1 = centre.y + height;
+    const pointery2 = centre.y - height;
+    points.push(pointerx1, pointery1, pointerx2, pointery1, pointerx2, pointery2, pointerx1, pointery2); // 0 1 2 3
 
-    const initialIndices = [0, 1, 2, 1, 3, 2]; //0,3,1
+    const initialIndices = [0, 3, 1, 1, 3, 2]; //0,3,1
     const indices = initialIndices.map(index => index + startIndex); // Adjust indices to start from 0
     console.log("Rectangle. (" + points.length + " points, " + indices.length + " indices)");
-    //console.log("points: " + points);
+    console.log("points: " + points);
+    console.log("indices: " + indices);
     return { points, indices }; // Adjust indices to start from 0
 
   }

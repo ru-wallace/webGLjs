@@ -312,6 +312,17 @@ export class GLInstance {
     this.drawScene(this.shapes.vorSymbol.elementStartIndex, this.shapes.vorSymbol.nIndices, matrix, color, 0);
   }
 
+  drawRunway(runway, color) {
+    
+
+    const runwayLocation = this.map.latLonToXY(runway.latitude, runway.longitude);
+
+    const runwayScale = runway.length / 10;
+    const runwayWidthScale = runway.width / 10;
+    const matrix = createMatrix(this.gl, runway.bearing, runwayLocation.x, runwayLocation.y, runwayScale, runwayWidthScale);
+    this.drawScene(this.shapes.rectangle.elementStartIndex, this.shapes.rectangle.nIndices, matrix, color, 0);
+  }
+
   drawIdbSymbol(lat, lon, color) {
     const idbLocation = this.map.latLonToXY(lat, lon);
 
@@ -334,13 +345,11 @@ export class GLInstance {
         const angle = j * increment;
         const x = Math.cos(angle) *  i * ringWidth;
         const y = Math.sin(angle) *  i * ringWidth;
-        matrix = createMatrix(this.gl, 0, idbLocation.x + x, idbLocation.y + y, outerDotsRadius, outerDotsRadius);
+        matrix = createMatrix(this.gl, 0, idbLocation.x + x, idbLocation.y - y, outerDotsRadius, outerDotsRadius);
         this.drawScene(this.shapes.filledCircle.elementStartIndex, this.shapes.filledCircle.nIndices, matrix, color, 0);
       }
       ringWidth = ringWidth + 0.6;
     }
-
-
   }
 
   
