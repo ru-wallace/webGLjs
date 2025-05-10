@@ -1,7 +1,11 @@
 import { initBuffers } from "./init-buffers.js";
-import { clearErrorQueue, checkError, bufferCircleIndices, bufferCirclePoints, bufferTrianglePoints, bufferTriangleIndices, bufferPointsData, bufferIndicesData, clearCanvas, createMatrix, drawScene, enableDepthTest, setViewport } from "./draw-scene.js";
+import * as glFuncs from "./glFunctions.js";
+import * as matrixFuncs from "./matrixFunctions.js";
+import * as geom from "./geometryFunctions.js";
+import * as convert from "./conversions.js";
+import {  bufferPointsData, bufferIndicesData, drawScene } from "./draw-scene.js";
 import { ATCMap } from "./map.js";
-import { PlaneList, EARTH_RADIUS_NAUTICAL_MILES, FEET_TO_NAUTICAL_MILES } from "./planes.js";
+import { PlaneList } from "./planes.js";
 
 
 
@@ -32,7 +36,7 @@ const PLANE_TEXT_FONT_FACE = "Arial"; // Font face
 const PLANE_TEXT_OFFSET_X = 10; // X offset in pixels
 const PLANE_TEXT_OFFSET_Y = 10; // Y offset in pixels
 
-const MIN_LAT = 55.55;
+
 const MAX_LAT = 56.21;
 const MIN_LON = -5.0;
 
@@ -132,12 +136,11 @@ function initShaderProgram(gl, vsSource, fsSource) {
     let radarCircle = programInfo.shapes.radarCircle;
     let scale = 1;
     let centre = { x: map.widthPx / 2, y: map.heightPx / 2 };
-    let matrix = createMatrix(gl, 0, centre.x, centre.y, scale, scale);
+    let matrix = matrixFuncs.createMatrix(gl, 0, centre.x, centre.y, scale, scale);
     drawScene(gl, programInfo, buffers, radarCircle.indicesStartIndex, radarCircle.indices.length, matrix, color);
   }
 
   function drawPlane(gl, programInfo, buffers, plane, matrix, color, historyDistanceInterval, maxHistoryPoints) {
-
 
 
     if (plane === undefined || plane === null) {
@@ -152,37 +155,37 @@ function initShaderProgram(gl, vsSource, fsSource) {
 
     for (let historyIndex = 0; historyIndex < plane.positionHistory.length; historyIndex++) {
       let historyPoint = plane.positionHistory.getPosition(historyIndex);
-      let distance = plane.positionHistory.calculateDistance(historyPoint.latitude, historyPoint.longitude, plane.latitude, plane.longitude);
+      let distance = geom.calculateDistance(historyPoint.latitude, historyPoint.longitude, plane.latitude, plane.longitude);
       let scale = 1 - (distance / (historyDistanceInterval*maxHistoryPoints));
       let historyPosition = map.latLonToXY(historyPoint.latitude, historyPoint.longitude);
-      let historyMatrix = createMatrix(gl, planeHeading, historyPosition.x, historyPosition.y, scale, scale);
-      drawScene(gl, programInfo, buffers, dots.indicesStartIndex, dots.indices.length, historyMatrix, PLANE_CIRCLE_COLOR);
+      let historyMatrix = matrixFuncs.createMatrix(gl, planeHeading, historyPosition.x, historyPosition.y, scale, scale);
+      drawScene(gl, programInfo, buffers, dots.indicesStartIndex, dots.indices.length, historyMatrix, PLANE_CIRCLE_COLOR, -0.1);
     }
 
 
 
     let mouseLatLon = map.xyToLatLon(mouseX, mouseY);
 
-    let distance = map.calculateDistance(mouseLatLon.lat, mouseLatLon.lon, plane.latitude, plane.longitude);
+    let distance = geom.calculateDistance(mouseLatLon.lat, mouseLatLon.lon, plane.latitude, plane.longitude);
     //console.log("plane  x/y: " + planePosition.x + " " + planePosition.y + " \nMouse x/y: " + mouseX + " " + mouseY);
     //console.log("Distance: " + distance);
 
-    let mouseOver = (distance < PLANE_CIRCLE_RADIUS) ? true : false;
+    let mouseOver = (distance < convert.nauticalMilesToMetres(PLANE_CIRCLE_RADIUS)) ? true : false;
     
     
 
-    if (distance < PLANE_CIRCLE_RADIUS) {
+    if (mouseOver) {
       if (hoveredPlane != plane.flightNumber) {
         if (hoveredPlane != -1) {
           if (distance < hoveredPlaneDistance) {
             hoveredPlane = plane.flightNumber;
             hoveredPlaneDistance = distance;
-            console.log("Hovered plane: " + hoveredPlane + " distance: " + distance);
+            console.log("Hovered plane: " + hoveredPlane + " distance: " + convert.metresToNauticalMiles(distance)+"NM");
           }
         } else {
           hoveredPlane = plane.flightNumber;
           hoveredPlaneDistance = distance;
-          console.log("Hovered plane: " + hoveredPlane + " distance: " + distance);
+          console.log("Hovered plane: " + hoveredPlane + " distance: " + convert.metresToNauticalMiles(distance)+"NM");
         }
       }
     } else {
@@ -201,23 +204,23 @@ function initShaderProgram(gl, vsSource, fsSource) {
     }
     
 
-    matrix = createMatrix(gl,planeHeading, planePosition.x, planePosition.y, 1, 1);
+    matrix =matrixFuncs.createMatrix(gl,planeHeading, planePosition.x, planePosition.y, 1, 1);
     //circlePoints = map.generateCentreCirclePoints(circleRadiusPx, circleNumPoints, circleLineThicknessPx);
     //trianglePoints = map.generateCentreTrianglePoints(5);
 
     let circle = programInfo.shapes.circle;
     let triangle = programInfo.shapes.triangle;
     let nElements = circle.indices.length + triangle.indices.length;
-    drawScene(gl, programInfo, buffers, circle.indicesStartIndex, nElements, matrix, circleColor);
+    drawScene(gl, programInfo, buffers, circle.indicesStartIndex, nElements, matrix, circleColor, 0);
 
     let pointer = programInfo.shapes.pointer;
-    matrix = createMatrix(gl,planeHeading, planePosition.x, planePosition.y, 1, plane.speed*0.07*mouseOverScale);
-    drawScene(gl, programInfo, buffers, pointer.indicesStartIndex, pointer.indices.length, matrix, circleColor);
+    matrix =matrixFuncs.createMatrix(gl,planeHeading, planePosition.x, planePosition.y, 1, plane.speed*0.07*mouseOverScale);
+    drawScene(gl, programInfo, buffers, pointer.indicesStartIndex, pointer.indices.length, matrix, circleColor, -0.3);
 
     if (mouseOver && plane.targetHeading != plane.heading) {
       let targetHeading = plane.targetHeading;
-      let targetMatrix = createMatrix(gl, targetHeading, planePosition.x, planePosition.y, 1, plane.speed*0.07*mouseOverScale);
-      drawScene(gl, programInfo, buffers, pointer.indicesStartIndex, pointer.indices.length, targetMatrix, PLANE_TARGET_POINTER_COLOR);
+      let targetMatrix =matrixFuncs.createMatrix(gl, targetHeading, planePosition.x, planePosition.y, 1, plane.speed*0.07*mouseOverScale);
+      drawScene(gl, programInfo, buffers, pointer.indicesStartIndex, pointer.indices.length, targetMatrix, PLANE_TARGET_POINTER_COLOR, -0.2);
     }
 
 
@@ -277,60 +280,12 @@ async function main() {
     }
   }
 
-  textCanvas.onwheel = function (event) {
-    event.preventDefault();
-    console.log("Mouse wheel event: " + event.deltaX + " " + event.deltaY);
-    console.log("Hovered plane: " + hoveredPlane);
-    if (hoveredPlane != -1) {
-      let index = planes.getPlaneIndex(hoveredPlane);
-      let targetAltitude = planes.getPlaneByIndex(index).targetAltitude;
-      let targetHeading = planes.getPlaneByIndex(index).targetHeading;
-
-      let adjustedX = 0;
-      if (event.deltaX != 0) {
-        adjustedX =5* event.deltaX / Math.abs(event.deltaX);
-      }
-      let adjustedY = 0;
-      if (event.deltaY != 0) {
-        adjustedY =5* event.deltaY/ Math.abs(event.deltaY);
-      }
-
-
-
-      console.log("Adjusted X: " + adjustedX + " Adjusted Y: " + adjustedY);
-      
-
-      let altitudeChange = adjustedY;
-      let headingChange = adjustedX;
-      let speedChange = 0;
-
-      if (event.shiftKey) {
-        altitudeChange = adjustedX;
-        headingChange = adjustedY;
-      } else if (event.ctrlKey) {
-        altitudeChange = 0;
-        headingChange = 0;
-        speedChange = adjustedY;
-      }
-
-      planes.setTargetAltitude(index, targetAltitude - altitudeChange*100);
-      planes.setTargetHeading(index, targetHeading + headingChange);
-      planes.setTargetSpeed(index, planes.getPlaneByIndex(index).targetSpeed - speedChange);
-    }
-  }
 
 
   resizeCanvasToDisplaySize(canvas);
   const gl = canvas.getContext('webgl2');
   const textContext = textCanvas.getContext('2d');
 
-  document.querySelector("#text-canvas").addEventListener("mousemove", (e) => {
-    document.querySelector("#mouse").innerText = `x:${e.clientX}, y:${e.clientY}`;
-    mouseX =  e.clientX;
-    mouseY =  e.clientY;
-
-}
-);
 
   map.widthPx = canvas.clientWidth;
   map.heightPx = canvas.clientHeight;
@@ -346,11 +301,11 @@ async function main() {
 
   
 
-  const mapHeightNM = map.calculateDistance(map.minLat, map.minLon, map.maxLat, map.minLon);
+  const mapHeightNM = geom.calculateDistance(map.minLat, map.minLon, map.maxLat, map.minLon);
 
   const mapWidthNM = aspect * mapHeightNM;
 
-  const rightMidPoint = map.calculatePoint(midLat, map.minLon, mapWidthNM, 90);
+  const rightMidPoint = geom.calculateDestination(midLat, map.minLon, mapWidthNM, 90);
   map.maxLon = rightMidPoint.lon;
 
   const midLon = (map.minLon + map.maxLon) / 2;
@@ -376,8 +331,8 @@ async function main() {
   let randomRadius2 = Math.round(Math.random() * RADAR_CIRCLE_RADIUS);
 
 
-  let randomLatLon = map.calculatePoint(centreLat, centreLon, randomDirection, randomRadius);
-  let randomLatLon2 = map.calculatePoint(centreLat, centreLon, randomDirection2, randomRadius2);
+  let randomLatLon = geom.calculateDestination(centreLat, centreLon, randomDirection, randomRadius);
+  let randomLatLon2 = geom.calculateDestination(centreLat, centreLon, randomDirection2, randomRadius2);
 
 
   let randomHeading = Math.round(Math.random() * 360);
@@ -398,10 +353,7 @@ async function main() {
   planes.setTargetHeading(1, 185);
   planes.setTargetSpeed(1, 200);
 
-  if (!gl) {
-      alert('Failed to get the rendering context for WebGL');
-      return;
-  }
+
 
   gl.clearColor(0, 0, 0, 1);
   gl.clear(gl.COLOR_BUFFER_BIT);
@@ -423,7 +375,8 @@ async function main() {
       },
       uniformLocations: {
         matrix: gl.getUniformLocation(shaderProgram, "uMatrix"),
-        circleColor: gl.getUniformLocation(shaderProgram, "uCircleColor"),
+        circleColor: gl.getUniformLocation(shaderProgram, "uColor"),
+        zLayer: gl.getUniformLocation(shaderProgram, "uZLayer"),
       },
     };
 
@@ -436,7 +389,7 @@ async function main() {
   };
 
   let radarCircleRadius = map.distanceNMToPixels(RADAR_CIRCLE_RADIUS);
-  radarCircle.points = map.generateCirclePoints(centreLat, centreLon, radarCircleRadius, RADAR_CIRCLE_NUM_POINTS, RADAR_CIRCLE_LINE_THICKNESS);
+  radarCircle.points = map.generateCentreCirclePoints(radarCircleRadius, RADAR_CIRCLE_NUM_POINTS, RADAR_CIRCLE_LINE_THICKNESS);
   radarCircle.indices = map.generateCircleIndices(radarCircle.points, 0);
 
 
@@ -469,7 +422,7 @@ async function main() {
     points: [],
     indices: [],
   }
-  let pointerGen = map.generatePlanePointer(PLANE_POINTER_SCALE, pointer.pointsStartIndex);
+  let pointerGen = map.generateRectangle(PLANE_POINTER_SCALE, pointer.pointsStartIndex);
   pointer.points = pointerGen.points;
   pointer.indices = pointerGen.indices;
 
@@ -497,20 +450,20 @@ async function main() {
   };
 
 
-  clearErrorQueue(gl, true);
+  glFuncs.clearErrorQueue(gl, true);
 
   const buffers = initBuffers(gl, programInfo);
-  checkError(gl, "Error initializing buffers", true);
+  glFuncs.checkError(gl, "Error initializing buffers", true);
 
   bufferPointsData(gl, buffers, programInfo.shapes);
-  checkError(gl, "Error buffering points data", true);
+  glFuncs.checkError(gl, "Error buffering points data", true);
   bufferIndicesData(gl, buffers, programInfo.shapes);
-  checkError(gl, "Error buffering indices data", true);
+  glFuncs.checkError(gl, "Error buffering indices data", true);
 
 
   let then = 0;
 
-  let matrix = createMatrix(gl, 0, 0, 0, 0, 0);
+  let matrix =matrixFuncs.createMatrix(gl, 0, 0, 0, 0, 0);
   let color = PLANE_CIRCLE_COLOR;
 
 
@@ -527,10 +480,10 @@ async function main() {
 
     textContext.clearRect(0, 0, textCanvas.width, textCanvas.height);
 
-    clearCanvas(gl);
-    setViewport(gl);
+    glFuncs.clearCanvas(gl, BACKGROUND_COLOR, 1.0);
+    glFuncs.setViewport(gl);
 
-    enableDepthTest(gl);
+    glFuncs.enableDepthTest(gl);
 
     drawRadarCircle(gl, programInfo, buffers, RADAR_CIRCLE_RADIUS, RADAR_CIRCLE_COLOR);
     
@@ -551,9 +504,7 @@ async function main() {
 
 
     for (let i = 0; i < planes.nPlanes; i++) {
-      if (!pause) {
-        planes.updatePlane(i, deltaTime); // update plane locations
-      }
+
 
       let plane = planes.getPlaneByIndex(i);
       if (plane === undefined || plane === null) {

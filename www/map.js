@@ -1,272 +1,375 @@
+import * as geom from "./geometryFunctions.js";
+import * as convert from "./conversions.js";
+
 class ATCMap {
-    minLat = 0;
-    maxLat = 0;
-    minLon = 0;
-    maxLon = 0;
+  minLat = 0;
+  maxLat = 0;
+  minLon = 0;
+  maxLon = 0;
 
-    widthPx = 0;
-    heightPx = 0;
+  widthPx = 0;
+  heightPx = 0;
 
-    constructor(minLat, maxLat, minLon, maxLon, widthPx, heightPx) {
-        this.minLat = minLat;
-        this.maxLat = maxLat;
-        this.minLon = minLon;
-        this.maxLon = maxLon;
-        this.widthPx = widthPx;
-        this.heightPx = heightPx;
-    }
+  constructor(lat, lon, radiusNM, scale, widthPx, heightPx) {
 
-    distanceNMToPixels(distanceNM) {
-        const latRange = this.maxLat - this.minLat;
-        const lonRange = this.maxLon - this.minLon;
-        const latDistancePx = (distanceNM / 60) * (this.heightPx / latRange);
-        return latDistancePx;
-    }
+    console.log("ATCMap constructor");
+    console.log("lat: " + lat);
+    console.log("lon: " + lon);
+    console.log("radiusNM: " + radiusNM);
+    console.log("scale: " + scale);
+    console.log("widthPx: " + widthPx);
+    console.log("heightPx: " + heightPx);
 
-    latLonToXY(lat, lon) {
+    this.widthPx = widthPx;
+    this.heightPx = heightPx;
 
-        
-        const x = ((lon - this.minLon) / (this.maxLon - this.minLon)) * this.widthPx;
-        const y = this.heightPx - (((lat - this.minLat) / (this.maxLat - this.minLat)) * this.heightPx);
+    const bounds = geom.calculateMapBounds(widthPx, heightPx, lat, lon, radiusNM, scale);
 
+    this.minLat = bounds.latMin;
+    this.maxLat = bounds.latMax;
+    this.minLon = bounds.lonMin;
+    this.maxLon = bounds.lonMax;
+    console.log("Bounds: " + this.minLat + " " + this.maxLat + " " + this.minLon + " " + this.maxLon);
+    this.lat = lat;
+    this.lon = lon;
+    this.radarRadiusNM = radiusNM;
+    this.scale = scale;
 
-        return { x, y };
-    }
+  }
 
-    xyToLatLon(x, y) {
-        const lon = ((x / this.widthPx) * (this.maxLon - this.minLon)) + this.minLon;
-        const lat = ((this.heightPx - y) / this.heightPx) * (this.maxLat - this.minLat) + this.minLat;
-        return { lat, lon };
-    }
-
-    generateCirclePoints(lat, lon, radiusPx, numPoints, lineThicknessPx) {
-        if (radiusPx <= 0) {
-            throw new Error("radiusPx must be greater than 0");
-        }
-        if (numPoints < 3) {
-            throw new Error("numPoints must be at least 3");
-        }
-        const center = this.latLonToXY(lat, lon);
-        const points = [];
-
-        const innerRadiusPx = radiusPx - lineThicknessPx / 2;
-        const outerRadiusPx = radiusPx + lineThicknessPx / 2;
-
-        for (let i = 0; i < numPoints; i++) {
-            const angle = (i / numPoints) * 2 * Math.PI;
-
-            const outerX = center.x + (outerRadiusPx) * Math.cos(angle);
-            const outerY = center.y + (outerRadiusPx) * Math.sin(angle);
-
-            const innerX = center.x + (innerRadiusPx) * Math.cos(angle);
-            const innerY = center.y + (innerRadiusPx) * Math.sin(angle);
-
-
-            
-            points.push(outerX, outerY, innerX, innerY);
-        }
-
-        return points;
-    }
-
-    generateCentreCirclePoints(radiusPx, numPoints, lineThicknessPx) {
-        if (radiusPx <= 0) {
-            throw new Error("radiusPx must be greater than 0");
-        }
-        if (numPoints < 3) {
-            throw new Error("numPoints must be at least 3");
-        }
-        const center = { x: this.widthPx / 2, y: this.heightPx / 2 };
-        const points = [];
-
-        const innerRadiusPx = radiusPx - lineThicknessPx / 2;
-        const outerRadiusPx = radiusPx + lineThicknessPx / 2;
-
-        for (let i = 0; i < numPoints; i++) {
-            const angle = (i / numPoints) * 2 * Math.PI;
-
-            const outerX = center.x + (outerRadiusPx) * Math.cos(angle);
-            const outerY = center.y + (outerRadiusPx) * Math.sin(angle);
-
-            const innerX = center.x + (innerRadiusPx) * Math.cos(angle);
-            const innerY = center.y + (innerRadiusPx) * Math.sin(angle);
-
-
-            
-            points.push(outerX, outerY, innerX, innerY);
-        }
-
-        return points;
-    }
-
-
-
-    generateCircleIndices(circlePoints, startIndex=0) {
-        var indices = [];
-        const numPoints = ((circlePoints.length ) / 4); // Each point has x and y coordinates
-        console.log("numPoints: " + numPoints);
-        for (let i = 0; i < numPoints - 1; i++) {
-            indices.push(i * 2, i * 2 + 1, (i + 1) * 2); // 0 1 2
-            indices.push(i * 2 + 1, (i + 1) * 2 + 1, (i + 1) * 2); // 1 3 2
-        }
-
-        // Connect the last point to the first point
-        indices.push((numPoints - 1) * 2, (numPoints - 1) * 2 + 1, 0);
-        indices.push((numPoints - 1) * 2 + 1, 1, 0);
-        indices = indices.map(index => index + startIndex); // Adjust indices to start from startIndex
-        return indices;
-    }
-
-    generateFilledCircle(radiusPx, numPoints, startIndex=0) {
-        if (radiusPx <= 0) {
-            throw new Error("radiusPx must be greater than 0");
-        }
-        if (numPoints < 3) {
-            throw new Error("numPoints must be at least 3");
-        }
-        const center = { x: this.widthPx / 2, y: this.heightPx / 2 };
-
-        const points = [center.x, center.y]; // Start with the center point
-        var indices = [];
-        for (let i = 0; i < numPoints; i++) {
-            const angle = (i / numPoints) * 2 * Math.PI;
-
-            const x = center.x + radiusPx * Math.cos(angle);
-            const y = center.y + radiusPx * Math.sin(angle);
-
-            points.push(x, y); // Center point and outer point
-
-            if (i > 1) {
-                indices.push(0, i , i-1); // 0 2 1, 0 3 2, 0 4 3, etc.
-            }
-
-
-        }
-
-        // Connect the last point to the first point
-        indices.push(0, 1, numPoints-1);
-
-        indices = indices.map(index => index + startIndex); // Adjust indices to start from 0
-        return { points, indices }; // Adjust indices to start from 0
-    }
-
-
-
-    generatePlaneTrianglePoints(lat, lon, speed, heading, scale) {
-        const center = this.latLonToXY(lat, lon);
-        const points = [];
-
-        const angle = (heading+90) * Math.PI / 180; // Rotate by 90 degrees to get the plane's orientation
-
-        const leftPointAngle = angle + 2* Math.PI / 3; // Left point angle
-        const rightPointAngle = angle - 2 * Math.PI / 3; // Right point angle
-
-        console.log("angle: " + angle * 180 / Math.PI);
-        console.log("leftPointAngle: " + leftPointAngle * 180 / Math.PI);
-        console.log("rightPointAngle: " + rightPointAngle * 180 / Math.PI);
-        console.log("center: " + center.x + ", " + center.y);
-
-        const x1 = center.x + (scale) * Math.sin(angle);
-        const y1 = center.y + (scale) * Math.cos(angle);
-
-        const x2 = center.x + (scale*(2/3)) * Math.sin(leftPointAngle);
-        const y2 = center.y + (scale*(2/3)) * Math.cos(leftPointAngle);
-
-        const x3 = center.x + (scale*(2/3)) * Math.cos(rightPointAngle);
-        const y3 = center.y + (scale*(2/3)) * Math.sin(rightPointAngle);
-        
-        console.log("x1: " + x1 + ", y1: " + y1);
-        console.log("x2: " + x2 + ", y2: " + y2);
-        console.log("x3: " + x3 + ", y3: " + y3);
-        points.push(center.x, center.y, x1, y1, x2, y2, x3, y3); // 0 1 2 3
-
-        return points;
-    }
-
-    generateCentreTrianglePoints(scale, pointerLength) {
-        const center = { x: this.widthPx / 2, y: this.heightPx / 2 };
-        const points = [];
-
-        const angle = 0; // Rotate by 90 degrees to get the plane's orientation
-
-        const leftPointAngle = 2* Math.PI / 3; // Left point angle
-        const rightPointAngle = 2* Math.PI / 3; // Right point angle
-
-
-        const frontX = center.x;
-        const frontY = center.y - (scale*0.5);
-
-        const backX = center.x;
-        const backY = center.y + (scale*0.3);
-
-        let backScale = scale * 2 / 3;
-
-        const backPointsY = backY + (backScale) * Math.sin(leftPointAngle)*0.5;
-        const leftX = backX - (backScale) * Math.cos(rightPointAngle);
-        const rightX = backX + (backScale) * Math.cos(rightPointAngle);
-
-        points.push(center.x, backY, center.x, frontY, leftX, backPointsY, rightX, backPointsY); // 0 1 2 3
-
+  updateBounds() {
  
-        return points;
+    const bounds = geom.calculateMapBounds(this.widthPx, this.heightPx, this.lat, this.lon, this.radarRadiusNM, this.scale);
+    this.setBounds(bounds.latMin, bounds.lonMin, bounds.latMax, bounds.lonMax);
+    console.log("Updated Bounds: " + this.minLat + " " + this.maxLat + " " + this.minLon + " " + this.maxLon);
+
+  }
+
+  setCentre(lat, lon) {
+    this.lat = lat;
+    this.lon = lon;
+    console.log("Set centre: " + lat + " " + lon);
+    this.updateBounds();
+  }
+
+  setRadius(radiusNM) {
+    this.radarRadiusNM = radiusNM;
+    console.log("Set radius: " + radiusNM);
+    this.updateBounds();
+  }
+
+  setScale(scale) {
+    this.scale = scale;
+    console.log("Set scale: " + scale);
+    this.updateBounds();
+  }
+
+  setDimensions(widthPx, heightPx) {
+    this.widthPx = widthPx;
+    this.heightPx = heightPx;
+    console.log("Set dimensions: " + widthPx + " " + heightPx);
+    this.updateBounds();
+  }
+  setWidth(widthPx) {
+    this.widthPx = widthPx;
+    console.log("Set width: " + widthPx);
+    this.updateBounds();
+  }
+  setHeight(heightPx) {
+    this.heightPx = heightPx;
+    console.log("Set height: " + heightPx);
+    this.updateBounds();
+  }
+  setBounds(minLat, minLon, maxLat, maxLon) {
+    this.minLat = minLat;
+    this.minLon = minLon;
+    this.maxLat = maxLat;
+    this.maxLon = maxLon;
+    console.log("Set bounds: (" + minLat + " " + maxLon + ") (" + maxLat + " " + maxLon + ")");
+  }
+
+  distanceNMToPixels(distanceNM) {
+    console.log("convert nm to pixels: " + distanceNM);
+
+    const latRange = this.maxLat - this.minLat;
+    console.log("latRange: " + latRange);
+
+    const lonRange = this.maxLon - this.minLon;
+    const latDistancePx = (distanceNM / 60) * (this.heightPx / latRange);
+    return latDistancePx;
+  }
+
+  distancePxToNM(distancePx) {
+    const latRange = this.maxLat - this.minLat;
+    const lonRange = this.maxLon - this.minLon;
+    const latDistanceNM = (distancePx / (this.heightPx / latRange)) * 60;
+    return latDistanceNM;
+  }
+
+  distanceMetresToPixels(distanceMetres) {
+    console.log("convert metres to pixels: " + distanceMetres);
+    const distanceNM = convert.metresToNauticalMiles(distanceMetres);
+    return this.distanceNMToPixels(distanceNM);
+  }
+  distancePixelsToMetres(distancePx) {
+    const distanceNM = this.distancePxToNM(distancePx);
+    return convert.nauticalMilesToMetres(distanceNM);
+  }
+
+  latLonToXY(lat, lon) {
+
+    const x = ((lon - this.minLon) / (this.maxLon - this.minLon)) * this.widthPx;
+    const y = this.heightPx - (((lat - this.minLat) / (this.maxLat - this.minLat)) * this.heightPx);
+    // console.log("Result: x: ", x, " y: ", y);
+    return { x, y };
+  }
+
+  xyToLatLon(x, y) {
+    const lon = ((x / this.widthPx) * (this.maxLon - this.minLon)) + this.minLon;
+    const lat = ((this.heightPx - y) / this.heightPx) * (this.maxLat - this.minLat) + this.minLat;
+    return { lat, lon };
+  }
+
+  generateCirclePointsOld(radiusPx, rotation, numPoints, lineThicknessPx, scaleX=1, scaleY=1) {
+    if (radiusPx <= 0) {
+      throw new Error("radiusPx must be greater than 0");
+    }
+    if (numPoints < 3) {
+      throw new Error("numPoints must be at least 3");
+    }
+    //console.log("Generating circle. radiusPX:" + radiusPx + " nPoints: " + numPoints + " lineWidth: " + lineThicknessPx);
+    const centre = { x: this.widthPx / 2, y: this.heightPx / 2 };
+    const points = [];
+
+    const innerRadiusPx = radiusPx - lineThicknessPx / 2;
+    const outerRadiusPx = radiusPx + lineThicknessPx / 2;
+
+    //const rotationRad = (rotation * Math.PI) / 180;
+    for (let i = 0; i < numPoints; i++) {
+      const angle = (i / numPoints) * 2 * Math.PI;// + rotationRad;
+
+      const outerX = (outerRadiusPx) * Math.cos(angle);
+      const outerY = (outerRadiusPx) * Math.sin(angle);
+
+      const innerX = (innerRadiusPx) * Math.cos(angle);
+      const innerY = (innerRadiusPx) * Math.sin(angle);
+      points.push(outerX, outerY, innerX, innerY);
     }
 
-    generatePlaneTriangleIndices(startIndex=0) {
-        const indices = [0, 1, 2, 0, 3, 1]; //0,3,1
+    // transform the points with glMatrix
 
- return indices.map(index => index + startIndex);
+    const transformedPoints = geom.transformPointsArray(
+      points, 
+      {
+        translateX: centre.x,
+        translateY: centre.y,
+        scaleX: scaleX,
+        scaleY: scaleY,
+        rotateDeg: rotation,
+        centerX: radiusPx,
+        centerY: radiusPx,
+      }
+    );
+
+    return transformedPoints; 
+  }
+
+  
+
+
+  generateCirclePoints(radiusPx, rotation, numPoints, lineThicknessPx, scaleX = 1, scaleY = 1) {
+    if (radiusPx <= 0) {
+      throw new Error("radiusPx must be greater than 0");
+    }
+    if (numPoints < 3) {
+      throw new Error("numPoints must be at least 3");
+    }
+    //console.log("Generating circle. radiusPX:" + radiusPx + " nPoints: " + numPoints + " lineWidth: " + lineThicknessPx);
+    const centre = { x: this.widthPx / 2, y: this.heightPx / 2 };
+    const points = [];
+
+
+    //const rotationRad = (rotation * Math.PI) / 180;
+    for (let i = 0; i < numPoints; i++) {
+      const angle = (i / numPoints) * 2 * Math.PI;// + rotationRad;
+
+      const x = (radiusPx) * Math.cos(angle);
+      const y = (radiusPx) * Math.sin(angle);
+      points.push(x, y);
     }
 
-    generatePlanePointer(scale, startIndex=0) {
-        const center = { x: this.widthPx / 2, y: this.heightPx / 2 };
-        const points = [];
-            //make pointer points
-            const pointerWidth = 2;
-            const pointerx1 = center.x - (0.5 * pointerWidth);
-            const pointerx2 = center.x + (0.5 * pointerWidth);
-    
-            const pointery1 = center.y - (scale);
-    
-            points.push(pointerx1, center.y, pointerx2, center.y, pointerx1, pointery1, pointerx2, pointery1); // 0 1 2 3
+    // transform the points with glMatrix
 
-            const initialIndices = [0, 1, 2, 1, 3, 2]; //0,3,1
-            const indices = initialIndices.map(index => index + startIndex); // Adjust indices to start from 0
-            return { points, indices }; // Adjust indices to start from 0
+    const transformedPoints= geom.transformPointsArray(
+      points,
+      {
+        translateX: centre.x,
+        translateY: centre.y,
+        scaleX: scaleX,
+        scaleY: scaleY,
+        rotateDeg: rotation,
+        centerX: radiusPx,
+        centerY: radiusPx,
+      }
+    );
 
-    }   
+    const pointsWithLineWidth = [];
+    const lastX = transformedPoints[transformedPoints.length - 2];
+    const lastY = transformedPoints[transformedPoints.length - 1];
 
-    calculateDistance(lat1, lon1, lat2, lon2) {
-        const R = 3440.065; // Radius of the Earth in nautical miles
-        const dLat = this.degreesToRadians(lat2 - lat1);
-        const dLon = this.degreesToRadians(lon2 - lon1);
-        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(this.degreesToRadians(lat1)) * Math.cos(this.degreesToRadians(lat2)) *
-            Math.sin(dLon / 2) * Math.sin(dLon / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c; // Distance in nautical miles
+    //pointsWithLineWidth.push(...geom.calculateCornerPoints(lastX, lastY, transformedPoints[0], transformedPoints[1], transformedPoints[2], transformedPoints[3], lineThicknessPx));
+
+    for (let i = 0; i < transformedPoints.length; i += 2) {
+      
+      const index1 = i;
+      const index2 = i + 2 >= transformedPoints.length ? i + 2 - transformedPoints.length : i + 2;
+      const index3 = i + 4 >= transformedPoints.length ? i + 4 - transformedPoints.length : i + 4;
+
+      const x1 = transformedPoints[index1];
+      const y1 = transformedPoints[index1 + 1];
+      const x2 = transformedPoints[index2];
+      const y2 = transformedPoints[index2 + 1];
+      const x3 = transformedPoints[index3];
+      const y3 = transformedPoints[index3 + 1];
+
+
+
+      pointsWithLineWidth.push(...geom.calculateCornerPoints(x1, y1, x2, y2, x3, y3, lineThicknessPx));
     }
 
-    calculatePoint(lat1, lon1, bearing, distanceNM) {
-        const R = 3440.065; // Radius of the Earth in nautical miles
-        const lat1Rad = this.degreesToRadians(lat1);
-        const lon1Rad = this.degreesToRadians(lon1);
-        const bearingRad = this.degreesToRadians(bearing);
 
-        const lat2Rad = Math.asin(Math.sin(lat1Rad) * Math.cos(distanceNM / R) +
-            Math.cos(lat1Rad) * Math.sin(distanceNM / R) * Math.cos(bearingRad));
-        const lon2Rad = lon1Rad + Math.atan2(Math.sin(bearingRad) * Math.sin(distanceNM / R) * Math.cos(lat1Rad),
-            Math.cos(distanceNM / R) - Math.sin(lat1Rad) * Math.sin(lat2Rad));
 
-        return { lat: this.radiansToDegrees(lat2Rad), lon: this.radiansToDegrees(lon2Rad) };
-    }
-    
+    return pointsWithLineWidth; // Adjusted points with line width
 
-    degreesToRadians(degrees) {
-        return degrees * (Math.PI / 180);
+  }
+
+
+
+  generateCircleIndices(circlePoints, startIndex = 0) {
+    var indices = [];
+    const numPoints = ((circlePoints.length) / 4); // Each point has x and y coordinates
+
+    for (let i = 0; i < numPoints - 1; i++) {
+      indices.push(i * 2, i * 2 + 1, (i + 1) * 2); // 0 1 2
+      indices.push(i * 2 + 1, (i + 1) * 2 + 1, (i + 1) * 2); // 1 3 2
     }
-    radiansToDegrees(radians) {
-        return radians * (180 / Math.PI);
+
+    // Connect the last point to the first point
+    indices.push((numPoints - 1) * 2, (numPoints - 1) * 2 + 1, 0);
+    indices.push((numPoints - 1) * 2 + 1, 1, 0);
+    indices = indices.map(index => index + startIndex); // Adjust indices to start from startIndex
+
+
+    return indices;
+  }
+
+  generateCircle(radiusPx, rotation, numPoints, lineThicknessPx, startIndex = 0, scaleX=1, scaleY=1) {
+    console.log("Generating circle. radiusPX:" + radiusPx + " nPoints: " + numPoints + " lineWidth: " + lineThicknessPx);
+    const circlePoints = this.generateCirclePoints(radiusPx, rotation, numPoints, lineThicknessPx, scaleX, scaleY);
+    const circleIndices = this.generateCircleIndices(circlePoints, startIndex);
+    console.log("Circle. (" + circlePoints.length + " points, " + circleIndices.length + " indices)");
+    //console.log("points: " + circlePoints);
+    //console.log("indices: " + circleIndices);
+    return { points: circlePoints, indices: circleIndices };
+  }
+
+  generateFilledCircle(radiusPx, numPoints, startIndex = 0) {
+    if (radiusPx <= 0) {
+      throw new Error("radiusPx must be greater than 0");
     }
+    if (numPoints < 3) {
+      throw new Error("numPoints must be at least 3");
+    }
+
+    console.log("Generating filled circle. radiusPX:" + radiusPx + " nPoints: " + numPoints);
+    const centre = { x: this.widthPx / 2, y: this.heightPx / 2 };
+
+    const points = [centre.x, centre.y]; // Start with the centre point
+    var indices = [];
+    for (let i = 0; i < numPoints; i++) {
+      const angle = (i / numPoints) * 2 * Math.PI;
+
+      const x = centre.x + radiusPx * Math.cos(angle);
+      const y = centre.y + radiusPx * Math.sin(angle);
+
+      points.push(x, y); // centre point and outer point
+
+      if (i > 1) {
+        indices.push(0, i, i - 1); // 0 2 1, 0 3 2, 0 4 3, etc.
+      }
+
+
+    }
+
+    // Connect the last point to the first point
+    indices.push(0, 1, numPoints - 1);
+
+    indices = indices.map(index => index + startIndex); // Adjust indices to start from 0
+
+    console.log("Filled circle. (" + points.length + " points, " + indices.length + " indices)");
+    //console.log("points: " + points);
+    //console.log("indices: " + indices);
+    return { points, indices }; // Adjust indices to start from 0
+  }
+
+  generateArrowPoints(width, height) {
+    const centre = { x: this.widthPx / 2, y: this.heightPx / 2 };
+    const points = [];
+
+    const frontY = centre.y - (height * 0.5);
+
+    const backCentreY = centre.y + (height * 0.3);
+    const backPointsY = centre.y + (height * 0.5);
+
+    const leftX = centre.x - (width * 0.5);
+    const rightX = centre.x + (width * 0.5);
+
+    points.push(centre.x, backCentreY, centre.x, frontY, leftX, backPointsY, rightX, backPointsY); // 0 1 2 3
+
+
+    return points;
+  }
+
+  generateArrowIndices(startIndex = 0) {
+    const indices = [0, 1, 2, 0, 3, 1]; //0,3,1
+
+    return indices.map(index => index + startIndex);
+  }
+
+  generateArrow(width, height, startIndex = 0) {
+    console.log("Generating arrow. width: " + width + " height: " + height + " startIndex: " + startIndex);
+    const arrowPoints = this.generateArrowPoints(width, height);
+    const arrowIndices = this.generateArrowIndices(startIndex);
+    console.log("Arrow. (" + arrowPoints.length + " points, " + arrowIndices.length + " indices)");
+    //console.log("points: " + arrowPoints);
+    //console.log("indices: " + arrowIndices);
+    return { points: arrowPoints, indices: arrowIndices };
+  }
+
+
+
+  generateRectangle(width, height, startIndex = 0) {
+    console.log("Generating rectangle. width: " + width + " height: " + height + " startIndex: " + startIndex);
+    const centre = { x: this.widthPx / 2, y: this.heightPx / 2 };
+    const points = [];
+    //make pointer points
+
+    const pointerx1 = centre.x - (0.5 * width);
+    const pointerx2 = centre.x + (0.5 * width);
+
+    const pointery1 = centre.y - height;
+    const pointery2 = centre.y + height;
+    points.push(centre.x, centre.y, pointerx1, pointery1, pointerx2, pointery1, pointerx1, pointery2); // 0 1 2 3
+
+    const initialIndices = [0, 1, 2, 1, 3, 2]; //0,3,1
+    const indices = initialIndices.map(index => index + startIndex); // Adjust indices to start from 0
+    console.log("Rectangle. (" + points.length + " points, " + indices.length + " indices)");
+    //console.log("points: " + points);
+    return { points, indices }; // Adjust indices to start from 0
+
+  }
+
+
 
 
 }

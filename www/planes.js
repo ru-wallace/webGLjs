@@ -1,4 +1,6 @@
-
+import * as convert from "./conversions.js";
+import * as geom from "./geometryFunctions.js";
+import { PositionHistory } from "./positionHistory.js";
 export const EARTH_RADIUS_NAUTICAL_MILES = 3440.065; // in nautical miles
 export const FEET_TO_NAUTICAL_MILES = 1 / 6076.11549; // conversion factor from feet to nautical miles
 
@@ -21,15 +23,15 @@ const HORIZONTAL_ACCELERATION_FPS2 = (PLANE_MAX_HORIZONTAL_G_FORCE) * G_FORCE_TO
 const MAX_CLIMB_RATE = 2000; // Maximum climb rate in feet per minute
 const MAX_DESCENT_RATE = 2000; // Maximum descent rate in feet per minute
 class PlaneList {
-    altitudes = []; //feet
-    targetAltitudes = []; //feet
+    altitudes = []; //metres
+    targetAltitudes = []; //metres
     latitudes = [];
     longitudes = [];
-    speeds = []; //knots
-    targetSpeeds = []; //knots
+    speeds = []; //metres per second
+    targetSpeeds = []; //metres per second
     headings = []; //compass degrees
     targetHeadings = []; //compass degrees
-    verticalSpeeds = []; //fpm
+    verticalSpeeds = []; //metres per second
     flightNumbers = [];
     types = [];
     squawks = [];
@@ -41,8 +43,10 @@ class PlaneList {
     boundsRadius = 10000000;
     boundsCenter = { lat: 0, lon: 0 };
     selectedPlaneIndex = -1; // index of the selected plane
+    minimumVerticalSeparation = convert.feetToMetres(1000); // minimum vertical separation in feet
+    minimumHorizontalSeparation = convert.nauticalMilesToMetres(3); // minimum horizontal separation in nautical miles
 
-    constructor(maxPlanes, maxHistory, historyDistance, removeOutOfBounds=false) {
+    constructor(maxPlanes, maxHistory, historyDistanceNM, removeOutOfBounds=false) {
         this.maxPlanes = maxPlanes;
         this.nPlanes = 0;
         this.altitudes = new Array(maxPlanes);
@@ -57,8 +61,21 @@ class PlaneList {
         this.positionHistories = new Array(maxPlanes);
         this.indexLookup = {}; // lookup table for flight numbers to indices
         this.maxHistory = maxHistory; // maximum number of history points for each plane
-        this.historyDistance = historyDistance; // minimum distance to add a new position to the history
+        this.historyDistance = convert.nauticalMilesToMetres(historyDistanceNM); // minimum distance to add a new position to the history
         this.removeOutOfBounds = removeOutOfBounds; // remove planes out of bounds
+        this.boundsRadius = 0; // in metres
+        this.boundsCenter = { lat: 0, lon: 0 }; // center of the radar in degrees
+        this.minimumVerticalSeparation = convert.feetToMetres(1000); // minimum vertical separation in feet
+        this.minimumHorizontalSeparation = convert.nauticalMilesToMetres(3); // minimum horizontal separation in nautical miles
+
+        console.log("PlaneList created");
+        console.log("Max planes: " + maxPlanes);
+        console.log("Max history: " + maxHistory);
+        console.log("History distance: " + historyDistanceNM);
+        console.log("Remove out of bounds: " + removeOutOfBounds);
+        console.log("Bounds radius: " + this.boundsRadius);
+        console.log("Bounds center: " + this.boundsCenter.lat + ", " + this.boundsCenter.lon);
+
     };
 
     selectPlane(index) {
@@ -88,40 +105,28 @@ class PlaneList {
     }
 
     updatePlane(index, deltaTime) {
-        var vSpeedFpS = this.verticalSpeeds[index] / 60; // convert fpm to fps
-        var speedNMpS = this.speeds[index] / 3600; // convert knots to nautical miles per second
+        var vSpeed = this.verticalSpeeds[index]; 
+        var hSpeed = this.speeds[index];
       
-        var northSouthSpeed = speedNMpS * Math.cos(this.headings[index] * Math.PI / 180); //component of speed in the north-south direction
-        var eastWestSpeed = speedNMpS * Math.sin(this.headings[index] * Math.PI / 180); // component of speed in the east-west direction
 
-        var latChange = northSouthSpeed * deltaTime / 60; // change in latitude (in degrees). 1 degree = 60 nautical miles
-        var altChange = vSpeedFpS * deltaTime; // change in altitude (in feet)
+        var altChange = vSpeed * deltaTime; // change in altitude 
         
         var newAltitude = this.altitudes[index] + altChange; // new altitude in feet
 
         var middleAltitude = (this.altitudes[index] + newAltitude) / 2; // average altitude in feet
-        var middleAltitudeNM = middleAltitude * FEET_TO_NAUTICAL_MILES; // average altitude in nautical miles
 
-        var radius = EARTH_RADIUS_NAUTICAL_MILES + middleAltitudeNM; // radius of the earth at the plane's altitude in nautical miles
-
-        //calculate how much to change longitude based on latitude
-        var latInRadians = this.latitudes[index] * Math.PI / 180; // convert to radians
+        const newLatLon = geom.calculateDestination(this.latitudes[index], this.longitudes[index], hSpeed * deltaTime, this.headings[index], middleAltitude); // calculate new latitude and longitude
         
-        var lonChange = eastWestSpeed * deltaTime / (Math.cos(latInRadians) * radius) * (180 / Math.PI); // change in longitude (in degrees). 1 degree = 60 nautical miles
+        
         this.altitudes[index] = newAltitude; // update altitude
-        this.latitudes[index] += latChange; // update latitude
-        this.longitudes[index] += lonChange; // update longitude
+        this.latitudes[index] = newLatLon.lat; // update latitude
+        this.longitudes[index] = newLatLon.lon; // update longitude
 
+        
         this.positionHistories[index].addPositionIfFurtherThanMin(this.latitudes[index], this.longitudes[index], this.historyDistance); // add position to history if further than min distance
 
-        if (this.removeOutOfBounds) {
-            var dist = this.calculateDistance(this.latitudes[index], this.longitudes[index], this.boundsCenter.lat, this.boundsCenter.lon); // calculate distance from center of bounds
-            if (dist > this.boundsRadius) { // if out of bounds
-                console.log("Plane out of bounds: " + this.flightNumbers[index] + " at index " + index);
-                console.log("Distance: " + dist + " miles, bounds radius: " + this.boundsRadius + " miles");
-                this.removePlane(index); // remove plane from list
-                return; // exit function
-            }
+        if (!this.checkBounds(index, this.removeOutOfBounds)) {
+            return; // if the plane is out of bounds, return
         }
 
         // go towards target altitude, speed and heading
@@ -165,8 +170,31 @@ class PlaneList {
             }
         }
 
-
     }
+
+    checkBounds(index, deleteifOutOfBounds = false) {
+        if (index < 0 || index >= this.nPlanes) {
+            return null;
+        }
+        
+
+        var dist = geom.calculateDistance(this.latitudes[index], this.longitudes[index], this.boundsCenter.lat, this.boundsCenter.lon); // calculate distance from center of bounds
+        const inBounds = dist < this.boundsRadius;
+
+        if (!inBounds) {
+            console.log("Plane out of bounds: " + this.flightNumbers[index] + " at index " + index);
+            console.log("Distance: " + convert.metresToNauticalMiles(dist) + "nm, bounds radius: " + convert.metresToNauticalMiles(this.boundsRadius) + "NM");
+            console.log("Bounds center: " + this.boundsCenter.lat + ", " + this.boundsCenter.lon);
+            console.log("Plane position: " + this.latitudes[index] + ", " + this.longitudes[index]);
+            if (deleteifOutOfBounds) {
+                console.log("Removing...");
+                this.removePlane(index); // remove plane from list
+            }
+        }
+
+        return inBounds;
+    }
+        
 
     updateAllPlanes(deltaTime) {
         for (var i = 0; i < this.nPlanes; i++) {
@@ -225,37 +253,68 @@ class PlaneList {
         }
     }
 
-    setBounds(lat, lon, radius) {
+    setBounds(lat, lon, radiusNM) {
         this.boundsCenter.lat = lat;
         this.boundsCenter.lon = lon;
-        this.boundsRadius = radius; // in nautical miles
+        this.boundsRadius = convert.nauticalMilesToMetres(radiusNM); // in metres
 
     }
 
-    addPlane(flightNumber, type, squawk, latitude, longitude, altitude, speed, heading, verticalSpeed) {
-        if (this.nPlanes < this.maxPlanes) {
-            this.flightNumbers[this.nPlanes] = flightNumber;
-            this.types[this.nPlanes] = type;
-            this.squawks[this.nPlanes] = squawk;
-            this.latitudes[this.nPlanes] = latitude;
-            this.longitudes[this.nPlanes] = longitude;
-            this.altitudes[this.nPlanes] = altitude;
-            this.targetAltitudes[this.nPlanes] = altitude; // set target altitude to current altitude
-            this.speeds[this.nPlanes] = speed;
-            this.targetSpeeds[this.nPlanes] = speed; // set target speed to current speed
-            this.headings[this.nPlanes] = heading;
-            this.targetHeadings[this.nPlanes] = heading; // set target heading to current heading
-            this.verticalSpeeds[this.nPlanes] = verticalSpeed;
-            this.nPlanes++;
-            this.indexLookup[flightNumber] = this.nPlanes - 1; // add to lookup table
-            this.positionHistories[this.nPlanes - 1] = new PositionHistory(this.maxHistory);
-            this.positionHistories[this.nPlanes - 1].addPosition(latitude, longitude); // add initial position to history
-            console.log("Added plane: " + flightNumber + " at index " + (this.nPlanes - 1));
-        } else {
-            console.log("Plane list is full. Cannot add more planes.");
+    setBoundsRadius(radiusNM) {
+        this.boundsRadius = convert.nauticalMilesToMetres(radiusNM); // in metres
+    }
+    setBoundsCenter(lat, lon) {
+        this.boundsCenter.lat = lat;
+        this.boundsCenter.lon = lon;
+    }
+
+    checkUniqueFlightNumber(flightNumber) {
+        if (this.indexLookup[flightNumber] !== undefined) {
+            console.log("Flight number " + flightNumber + " already exists at index " + this.indexLookup[flightNumber]);
+            return false; // flight number already exists
         }
+        return true; // flight number is unique
     }
 
+    addPlane(flightNumber, type, squawk, latitude, longitude, altitudeFt, speedKts, heading, verticalSpeedFpM) {
+        if (this.nPlanes >= this.maxPlanes) {
+            console.log("Plane list is full. Cannot add more planes.");
+            return;
+        }
+
+        if (!this.checkUniqueFlightNumber(flightNumber)) {
+            console.log("Flight number " + flightNumber + " already exists. Cannot add plane.");
+            return;
+        }
+        this.flightNumbers[this.nPlanes] = flightNumber;
+        this.types[this.nPlanes] = type;
+        this.squawks[this.nPlanes] = squawk;
+        this.latitudes[this.nPlanes] = latitude;
+        this.longitudes[this.nPlanes] = longitude;
+        this.altitudes[this.nPlanes] = convert.feetToMetres(altitudeFt);
+        this.targetAltitudes[this.nPlanes] = this.altitudes[this.nPlanes]; // set target altitude to current altitude
+        this.speeds[this.nPlanes] = convert.ktsToMetresPerSecond(speedKts)
+        this.targetSpeeds[this.nPlanes] = this.speeds[this.nPlanes]; // set target speed to current speed
+        this.headings[this.nPlanes] = heading;
+        this.targetHeadings[this.nPlanes] = heading; // set target heading to current heading
+        this.verticalSpeeds[this.nPlanes] = convert.feetPerMinuteToMetresPerSecond(verticalSpeedFpM);
+        this.indexLookup[flightNumber] = this.nPlanes ; // add to lookup table
+        this.positionHistories[this.nPlanes] = new PositionHistory(this.maxHistory);
+        this.positionHistories[this.nPlanes].addPosition(latitude, longitude); // add initial position to history
+        console.log("Added plane: " + flightNumber + " at index " + (this.nPlanes));
+        this.nPlanes++;
+        return this.nPlanes - 1; // return index of new plane
+    }
+
+    addRandomPlane(flightNumber, type, squawk) {
+        let randomDirection = Math.round(Math.random() * 360);
+        let randomRadius = Math.round(Math.random() * this.boundsRadius);
+        let randomLatLon = geom.calculateDestination(this.boundsCenter.lat, this.boundsCenter.lon, randomRadius, randomDirection);
+        let randomHeading = Math.round(Math.random() * 360);
+        let randomSpeed = Math.round(Math.random() * 900) + 100;
+        let randomAltitude = Math.round(Math.random() * 10000) + 1000;
+        return this.addPlane(flightNumber, type, squawk, randomLatLon.lat, randomLatLon.lon, randomAltitude, randomSpeed, randomHeading, 0); // add plane with random parameters
+    }
 
     removePlane(index) {
         if (index >= 0 && index < this.nPlanes) {
@@ -312,6 +371,7 @@ class PlaneList {
     getPlaneByIndex(index) {
         if (index >= 0 && index < this.nPlanes) {
             return {
+                index: index,
                 flightNumber: this.flightNumbers[index],
                 type: this.types[index],
                 squawk: this.squawks[index],
@@ -324,52 +384,50 @@ class PlaneList {
                 heading: this.headings[index],
                 targetHeading: this.targetHeadings[index],
                 verticalSpeed: this.verticalSpeeds[index],
-
                 positionHistory: this.positionHistories[index] // return the history array
             };
         } else {
             return null;
         }
     }
-    getPlane(flightNumber) {
+    getPlaneByFlightNumber(flightNumber) {
         var index = this.getPlaneIndex(flightNumber);
         return this.getPlaneByIndex(index);
 
     }
 
-    setPlaneParams(params) {
-        var index = this.getPlaneIndex(params.flightNumber);
-        if (index >= 0 && index < this.nPlanes) {
-            if (params.type) this.types[index] = params.type;
-            if (params.squawk) this.squawks[index] = params.squawk;
-            if (params.latitude) this.latitudes[index] = params.latitude;
-            if (params.longitude) this.longitudes[index] = params.longitude;
-            if (params.altitude) this.altitudes[index] = params.altitude;
-            if (params.speed) this.speeds[index] = params.speed;
-            if (params.heading) this.headings[index] = params.heading;
-            if (params.verticalSpeed) this.verticalSpeeds[index] = params.verticalSpeed;
-        } else {
-            console.log("Invalid index. Cannot update plane.");
-        }
+    getPlaneByIndexImperial(index) {
+        var plane = this.getPlaneByIndex(index);
+        plane.altitude = convert.metresToFeet(plane.altitude);
+        plane.targetAltitude = convert.metresToFeet(plane.targetAltitude);
+        plane.speed = convert.metresPerSecondToKts(plane.speed);
+        plane.targetSpeed = convert.metresPerSecondToKts(plane.targetSpeed);
+        plane.verticalSpeed = convert.metresPerSecondToFeetPerMinute(plane.verticalSpeed);
+        return plane;
+
     }
 
-    calculateDistance(lat1, lon1, lat2, lon2) {
-        const R = 3440.065; // Radius of the Earth in nautical miles
-        const dLat = this.degreesToRadians(lat2 - lat1);
-        const dLon = this.degreesToRadians(lon2 - lon1);
-        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(this.degreesToRadians(lat1)) * Math.cos(this.degreesToRadians(lat2)) *
-            Math.sin(dLon / 2) * Math.sin(dLon / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c; // Distance in nautical miles
+    getPlaneByFlightNumberImperial(flightNumber) {
+        var index = this.getPlaneIndex(flightNumber);
+        var plane = this.getPlaneByIndexImperial(index);
+        return plane;
     }
 
-    degreesToRadians(degrees) {
-        return degrees * (Math.PI / 180);
-    }
-    radiansToDegrees(radians) {
-        return radians * (180 / Math.PI);
-    }
+    // setPlaneParams(params) {
+    //     var index = this.getPlaneIndex(params.flightNumber);
+    //     if (index >= 0 && index < this.nPlanes) {
+    //         if (params.type) this.types[index] = params.type;
+    //         if (params.squawk) this.squawks[index] = params.squawk;
+    //         if (params.latitude) this.latitudes[index] = params.latitude;
+    //         if (params.longitude) this.longitudes[index] = params.longitude;
+    //         if (params.altitude) this.altitudes[index] = params.altitude;
+    //         if (params.speed) this.speeds[index] = params.speed;
+    //         if (params.heading) this.headings[index] = params.heading;
+    //         if (params.verticalSpeed) this.verticalSpeeds[index] = params.verticalSpeed;
+    //     } else {
+    //         console.log("Invalid index. Cannot update plane.");
+    //     }
+    // }
 
     calculateHorizontalSeparation(index1, index2) {
         if (index1 >= 0 && index1 < this.nPlanes && index2 >= 0 && index2 < this.nPlanes) {
@@ -377,21 +435,21 @@ class PlaneList {
             var lon1 = this.longitudes[index1];
             var lat2 = this.latitudes[index2];
             var lon2 = this.longitudes[index2];
-            return this.calculateDistance(lat1, lon1, lat2, lon2); // in nautical miles
+            return geom.calculateDistance(lat1, lon1, lat2, lon2); // in nautical miles
         } else {
             console.log("Invalid index. Cannot calculate horizontal separation.");
             return null;
         }
     }
 
-    getPlanesWithinVerticalSeparation(index1, verticalSeparation) {
+    getPlanesWithinVerticalSeparation(index1, verticalSeparationMetres) {
         if (index1 >= 0 && index1 < this.nPlanes) {
             var planes = [];
             for (var i = 0; i < this.nPlanes; i++) {
                 if (i !== index1) {
                  var altDiff = Math.abs(this.altitudes[index1] - this.altitudes[i]);
                    // log altitude difference
-                    if (altDiff <= verticalSeparation) {
+                    if (altDiff <= verticalSeparationMetres) {
                         planes.push(i); // add plane to list
                     }
                 }
@@ -403,19 +461,19 @@ class PlaneList {
         }
     }
 
-    getSeparationIncidents(minVerticalSeparation, minHorizontalSeparation) {
+    getSeparationIncidents() {
         var incidents = []; // array to hold incidents
         for (var i = 0; i < this.nPlanes; i++) {
             //console.log("Checking plane " + i + " with altitude " + this.altitudes[i]); // log plane altitude
-            var planes = this.getPlanesWithinVerticalSeparation(i, minVerticalSeparation); // get planes within vertical separation of 1000 feet
+            var planes = this.getPlanesWithinVerticalSeparation(i, this.minimumVerticalSeparation); // get planes within vertical separation of 1000 feet
             //console.log("Planes within vertical separation of " + minVerticalSeparation + " feet: " + planes.length); // log planes within vertical separation
             if (planes.length > 0) { // if there are planes within vertical separation
                 for (var j = 0; j < planes.length; j++) {
                     var index2 = planes[j];
                     var verticalSeparation = Math.abs(this.altitudes[i] - this.altitudes[index2]); // calculate vertical separation
                     var horizontalSeparation = this.calculateHorizontalSeparation(i, index2); // calculate horizontal separation
-                    if (horizontalSeparation < minHorizontalSeparation) { // if horizontal separation is less than 3 nautical miles
-                        console.error("Incident detected between planes " + this.flightNumbers[i] + " and " + this.flightNumbers[index2] + " with horizontal separation of " + horizontalSeparation + " nautical miles and vertical separation of " + verticalSeparation + " feet"); // log incident
+                    if (horizontalSeparation < this.minimumHorizontalSeparation) { // if horizontal separation is less than 3 nautical miles
+                        //console.error("Incident detected between planes " + this.flightNumbers[i] + " and " + this.flightNumbers[index2] + " with horizontal separation of " + horizontalSeparation + " nautical miles and vertical separation of " + verticalSeparation + " feet"); // log incident
                         incidents.push({ plane1: i, plane2: index2, horizontalSeparation: horizontalSeparation, verticalSeparation: verticalSeparation }); // add incident to list
                     }
                 }
@@ -428,66 +486,4 @@ class PlaneList {
 }
 
 
-class PositionHistory {
-    constructor(maxHistory) {
-        this.maxHistory = maxHistory;
-        this.history = new Array(maxHistory);
-        for (let i = 0; i < maxHistory; i++) {
-            this.history[i] = { latitude: null, longitude: null };
-        }
-        this.length = 0;
-    }
-
-
-
-    addPosition(latitude, longitude) {
-        this.history.unshift({ latitude: latitude, longitude: longitude });
-        if (this.history.length > this.maxHistory) {
-            this.history.pop();
-        } 
-        this.length = Math.min(this.length + 1, this.maxHistory);
-    }
-
-    getPosition(index) {
-        return this.history[index];
-    }
-
-    getLastPosition() {
-        return this.history[0];
-    }
-
-    addPositionIfFurtherThanMin(latitude, longitude, distance) {
-        const lastPosition = this.getLastPosition();
-        if (lastPosition.latitude === null || lastPosition.longitude === null) {
-            this.addPosition(latitude, longitude);
-            return true;
-        } else {
-            const dist = this.calculateDistance(lastPosition.latitude, lastPosition.longitude, latitude, longitude);
-            if (dist > distance) {
-                this.addPosition(latitude, longitude);
-                return true;
-            }
-        }
-        return false;
-    }
-    calculateDistance(lat1, lon1, lat2, lon2) {
-        const R = 3440.065; // Radius of the Earth in nautical miles
-        const dLat = this.degreesToRadians(lat2 - lat1);
-        const dLon = this.degreesToRadians(lon2 - lon1);
-        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(this.degreesToRadians(lat1)) * Math.cos(this.degreesToRadians(lat2)) *
-            Math.sin(dLon / 2) * Math.sin(dLon / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c; // Distance in nautical miles
-    }
-
-
-
-    degreesToRadians(degrees) {
-        return degrees * (Math.PI / 180);
-    }
-    radiansToDegrees(radians) {
-        return radians * (180 / Math.PI);
-    }
-}
 export { PlaneList, PositionHistory};

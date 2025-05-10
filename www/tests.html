@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title></title>
+    <meta name="description" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="tests.js" type="module"></script>
+    <style>
+      body {
+        margin: 0;
+        font-size: large;
+      }
+      #test-list {
+        display: flex;
+        flex-direction: column;
+        padding: 10px;
+        width: 100%;
+        height: 100%;
+      }
+     .test-box {
+      display: flex;
+      flex-direction: row;
+      gap: 10px;
+      padding: 5px;
+      border: 1px solid black;
+      min-height: 20px;
+      width: 100%;
+     }
+
+     .test-box.error {
+      background-color: #eb828b;
+     }
+     .test-name {
+      font-weight: bold;
+      min-width: 100px;
+     }
+     .test-expected {
+      font-style: italic;
+      min-width: 50px;
+     }
+     .test-result {
+      min-width: 50px;
+     }
+     .pass .test-result {
+      color: green;
+     }
+     .fail .test-result {
+      color: rgb(158, 3, 3);
+     }
+
+     
+    </style>
+  </head>
+  <body>
+    <div id="test-list"></div>
+    
+
+  </body>
+</html>
