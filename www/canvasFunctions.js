@@ -16,10 +16,16 @@ export class Canv {
       textAlign = this.context.textAlign;
     }
     this.textAlign = textAlign;
+    this.textBaseline = this.context.textBaseline;
 
     this.planeTextOffset = {
       x: 10,
       y: 0,
+    };
+
+    this.navAidTextOffset = {
+      x: 10,
+      y: 10,
     };
     this.updateFont();
   }
@@ -31,6 +37,7 @@ export class Canv {
     this.context.font = `${this.fontSize}px ${this.fontFace}`;
     this.context.fillStyle = this.color;
     this.context.textAlign = this.textAlign;
+    this.context.textBaseline = this.textBaseline;
   }
   setFontFace(fontFace) {
     this.fontFace = fontFace;
@@ -45,7 +52,12 @@ export class Canv {
     this.updateFont();
   }
   setTextAlign(textAlign) {
-    this.context.textAlign = textAlign;
+    this.textAlign = textAlign;
+    this.updateFont();
+  }
+  setTextBaseline(textBaseline) {
+    this.textBaseline = textBaseline;
+    this.updateFont();
   }
 
   drawPlaneText(plane) {
@@ -85,6 +97,40 @@ export class Canv {
     this.context.fillText(headingText, anchorX, anchorY + this.fontSize * 5);
   
   }  
+
+  drawNavAidText(navAid) {
+    const navAidPosition = this.map.latLonToXY(navAid.latitude, navAid.longitude);
+
+    if (navAid.labelDirection === undefined) {
+      navAid.labelDirection = 'se';
+    }
+
+    const offset = {
+      x: this.navAidTextOffset.x,
+      y: this.navAidTextOffset.y,
+    }
+    navAid.labelDirection = navAid.labelDirection.toLowerCase() || 'se';
+
+    if (navAid.labelDirection.includes('n')) {
+      this.context.textBaseline = "bottom";
+      offset.y = -offset.y;
+    // } else if (navAid.labelDirection.includes('s')) {
+    //   this.context.textBaseline = "top";
+    }
+    if (navAid.labelDirection.includes('e')) {
+      this.context.textAlign = "left";
+    } else if (navAid.labelDirection.includes('w')) {
+      this.context.textAlign = "right";
+
+      offset.x = -offset.x;
+    }
+
+    const anchorX = navAidPosition.x + offset.x;
+    const anchorY = navAidPosition.y + offset.y;
+    this.context.font = `${this.fontSize}px ${this.fontFace}`;
+    this.context.fillStyle = this.color;
+    this.context.fillText(navAid.name, anchorX, anchorY);
+  }
 }
 
 

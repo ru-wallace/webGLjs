@@ -26,10 +26,10 @@ async function main() {
     glCanvas: canvas,
     textCanvas: textCanvas,
     centre: {
-      lat: 55.525140,
-      lon: -4.245913,
+      lat: 55.869772,
+      lon: -4.433617,
     },
-    radius: 15,
+    radius: 16,
     scale: 1.1,
     historySeparationDistanceNM: 0.25,
     removeOutOfBounds: true,
@@ -41,55 +41,76 @@ async function main() {
   txtCanv.planeTextOffset.x = 20;
   txtCanv.planeTextOffset.y = 20;
 
-  const south5nm = geom.calculateDestination(game.centre.lat, game.centre.lon, convert.nauticalMilesToMetres(5), 180);
-  const east5nm = geom.calculateDestination(game.centre.lat, game.centre.lon, convert.nauticalMilesToMetres(5), 90);
-
   const navAids = [];
   navAids.push({
     name: "GOW",
-    latitude: 55.521381,
-    longitude: -4.26446,
+    latitude: 55.869772,
+    longitude: -4.433617,
     type: "VOR-DME",
     frequency: 115.5,
     range: 100,
   },
-    {
-      name: "VOR2",
-      latitude: south5nm.lat,
-      longitude: south5nm.lon,
-      type: "VOR-DME",
-      frequency: 115.5,
-      range: 100,
-    },
-    {
-      name: "GLW",
-      latitude: 55.521117,
-      longitude: -4.260106,
-      type: "IDB",
-      frequency: 115.5,
-      range: 100,
-    },
+  {
+    name: "CVL",
+    latitude: 56.02460152231144,
+    longitude:  -4.076019368863338,
+    type: "VOR-DME",
+    frequency: 115.5,
+    range: 100,
+  },
+  {
+    name: "GLW",
+    latitude: 55.870507,
+    longitude: -4.445715,
+    type: "IDB",
+    frequency: 115.5,
+    range: 100,
+    labelDirection: "NW"
+  },
 
   );
 
-  const end05lat = 55.514853;
-  const end05lon = -4.265659;
+  console.log("Distance GOW to CVL: " + convert.metresToNauticalMiles(geom.calculateDistance(navAids[0].latitude, navAids[0].longitude, navAids[1].latitude, navAids[1].longitude)));
 
-  const end23lon = -4.245913;
-  const end23lat = 55.524107;
+  const end05lat = 55.863473;
+  const end05lon = -4.449054;
+
+  const end23lon = -4.421762;
+  const end23lat = 55.878078;
 
   const middlelat = (end05lat + end23lat) / 2;
   const middlelon = (end05lon + end23lon) / 2;
   const runways = [];
   runways.push({
     bearing: 50,
+    labels: ["05", "23"],
+
+    activeApproach: "05",
     length: 2865,
     width: 46,
     latitude: middlelat,
     longitude: middlelon,
+    altitude: convert.feetToMetres(26),
+    approaches:[ {
+      type: "ILS",
+      runway: "05",
+      bearing: 50,
+      frequency: 110.5,
+      length: convert.nauticalMilesToMetres(10),
+      glideslope: 3,
+    },
+      {
+        type: "ILS",
+        runway: "23",
+        bearing: 230,
+        frequency: 110.5,
+        length: convert.nauticalMilesToMetres(10),
+        glideslope: 3,
+      }
+  ]
   });
-  
-  
+
+
 
   const plane1 = game.planeList.addRandomPlane("BAW123", "Boeing 737", "1234");
 
@@ -97,7 +118,7 @@ async function main() {
 
   game.planeList.setTargetFlightLevel(plane1, 60);
   game.planeList.setTargetHeading(plane1, 90);
-  game.planeList.setTargetSpeed(plane1, 500);
+  game.planeList.setTargetSpeed(plane1, 150);
 
   console.log("Min Horizontal Separation: " + game.planeList.minimumHorizontalSeparation);
   console.log("To pixels: " + game.map.distanceMetresToPixels(game.planeList.minimumHorizontalSeparation));
@@ -137,6 +158,9 @@ async function main() {
   glO.setViewport();
   glO.enableDepthTest();
 
+  var nearestPlane;
+  var mouseLatLon;
+
   function render(now) {
     utils.resizeCanvasToDisplaySize(canvas);
     utils.resizeCanvasToDisplaySize(textCanvas);
@@ -154,6 +178,7 @@ async function main() {
 
     for (let i = 0; i < navAids.length; i++) {
       let navAid = navAids[i];
+      txtCanv.drawNavAidText(navAid);
       let color = [0.0, 0.5, 0.0, 1];
       if (navAid.type === "VOR-DME") {
         color = [0.5, 0.5, 1.0, 1];
@@ -168,14 +193,38 @@ async function main() {
       let runway = runways[i];
       let color = [0.5, 0.5, 0.5, 1];
       glO.drawRunway(runway, color);
+      if (runway.approaches !== undefined) {
+        color = [0.5, 0.5, 1.0, 1];
+        glO.drawIlsApproach(runway,color);
+      }
     }
 
     let separationIncidents = [];
 
-    if (!game.pause) {
+
+
+    if (!game.pause && game.planeList.nPlanes > 0) {
       game.planeList.updateAllPlanes(deltaTime); // update all planes
       separationIncidents = game.planeList.getSeparationIncidents(); // get separation incidents
 
+    }
+
+    mouseLatLon = game.map.xyToLatLon(game.mouseX, game.mouseY);
+
+    nearestPlane = game.planeList.getNearestPlane(mouseLatLon.lat, mouseLatLon.lon);
+
+
+
+    if (nearestPlane != null)
+    {
+
+      if (nearestPlane.distance < game.planeList.minimumHorizontalSeparation / 2)
+      {
+        game.planeList.setHoveredPlane(nearestPlane.index);
+      } else
+      {
+        game.planeList.setHoveredPlane(-1);
+      }
     }
 
     let planeSeparationIncidentBoolArray = new Array(game.planeList.nPlanes).fill(false);
@@ -187,16 +236,29 @@ async function main() {
 
     for (let i = 0; i < game.planeList.nPlanes; i++) {
       let plane = game.planeList.getPlaneByIndex(i);
-      let color = [0.0, 1.0, 0.0, 1];
-      if (planeSeparationIncidentBoolArray[i]) {
-        color = [1, 0, 0, 1];
-      }
-      glO.drawCircle(plane, color);
-      glO.drawArrow(plane, color);
-      glO.drawPlaneSpeedIndicator(plane, color);
-      
-      txtCanv.drawPlaneText(plane);
 
+
+      let circleColor = [0.0, 1.0, 0.0, 1];
+      let arrowColor = circleColor;
+      let speedIndicatorColor = circleColor;
+
+      if (planeSeparationIncidentBoolArray[i]) {
+        circleColor = [1, 0, 0, 1];
+      }
+
+      var showTarget = false;
+
+      let targetHeadingColor = [0.0, 0.0, 0.0, 0.0];
+      if (game.planeList.isHoveredPlane(i)) {
+        arrowColor = [1.0, 1.0, 1.0, 1];
+        targetHeadingColor = [1.0, 1.0, 0.0, 1];
+        showTarget = true;
+      }
+
+
+
+
+      let historyColor = [0.0, 0.8, 0.0, 1];
 
       if (game.showHistory) {
         //console.log("Plane: " + plane.flightNumber + " has history: " + plane.positionHistory.length);
@@ -204,17 +266,22 @@ async function main() {
           let historyPoint = plane.positionHistory.getPosition(j);
           let distance = geom.calculateDistance(historyPoint.latitude, historyPoint.longitude, plane.latitude, plane.longitude);
           //console.log("Distance: " + distance);
-          let scale = 2*(1 - (distance / (game.planeList.historyDistance*game.planeList.maxHistory)));
-          glO.drawHistoryPoint(plane, j, [0.0, 0.8, 0.0, 1], scale);
+          let scale = 2 * (1 - (distance / (game.planeList.historyDistance * game.planeList.maxHistory)));
+          glO.drawHistoryPoint(plane, j, historyColor, scale);
         }
       }
-      
+
+
+      glO.drawPlane(plane, showTarget, circleColor, arrowColor, speedIndicatorColor, targetHeadingColor);
+      txtCanv.drawPlaneText(plane);
+
+
     }
 
-    if (now < 60) {
+    if (now >=0) {
       requestAnimationFrame(render);
     }
-    
+
 
   }
 

@@ -1,5 +1,6 @@
 import { PlaneList } from "./planes.js";
 import { ATCMap } from "./map.js";
+import * as utils from "./utils.js"
 
 
 export const historySeparationMethod = Object.freeze({
@@ -22,7 +23,7 @@ const defaultParams = {
     lon: -4.43058,
   },
   /**@type {number} */
-  radius: 30, //radar radius in nautical miles
+  radius: 24.41, //radar radius in nautical miles
   /**@type {number} */
   scale: 1.1, //scale (1.1 = 10% more than radar radius)
 
@@ -108,12 +109,15 @@ export class Game {
 
     this.mouseX = 0;
     this.mouseY = 0;
+    this.mouseLat = 0;
+    this.mouseLon = 0;
     this.mouseDown = false;
     this.mouseDownX = 0;
     this.mouseDownY = 0;
 
-    this.hoveredPlane = -1;
-    this.selectedPlane = -1;
+    this.resizeTimeout = null;
+    this.resizeDelay = 100;
+
 
     this.setEventHandlers();
 
@@ -126,16 +130,27 @@ export class Game {
     this.planeList.setBounds(lat, lon, this.radarRadius);
   }
 
+  updateMousePosition(x, y) {
+    const latLon = this.map.xyToLatLon(x, y);
+    document.querySelector("#mouse").innerText = `x:${x}, y:${y}`;
+    document.querySelector("#mouse").innerText += ` lat:${latLon.lat.toFixed(5)}, lon:${latLon.lon.toFixed(5)}`;
+
+    this.mouseX = x;
+    this.mouseY = y;
+  }
+
     
 
   handleScroll(e) {
     e.preventDefault();
     console.log("Scroll event: " + e.deltaX + " " + e.deltaY);
-    if (this.hoveredPlane != -1) {
-      console.log("Hovered plane: " + this.hoveredPlane);
-      let index = this.planeList.getPlaneIndex(this.hoveredPlane);
-      let targetAltitude = this.planeList.getPlaneByIndex(index).targetAltitude;
-      let targetHeading = this.planeList.getPlaneByIndex(index).targetHeading;
+    const hoveredPlane = this.planeList.getHoveredPlaneImperial();
+    if (hoveredPlane !== null) {
+      console.log("Hovered plane: " + hoveredPlane.flightNumber);
+      let index = hoveredPlane.index;
+      let targetAltitude = hoveredPlane.targetAltitude;
+      let targetHeading = hoveredPlane.targetHeading;
+      let targetSpeed = hoveredPlane.targetSpeed;
 
       let adjustedX = 0;
       if (e.deltaX != 0) {
@@ -145,12 +160,12 @@ export class Game {
       if (e.deltaY != 0) {
         adjustedY = 5 * e.deltaY / Math.abs(e.deltaY);
       }
-      let altitudeChange = adjustedY;
-      let headingChange = adjustedX;
+      let altitudeChange = adjustedX;
+      let headingChange = adjustedY;
       let speedChange = 0;
       if (e.shiftKey) {
-        altitudeChange = adjustedX;
-        headingChange = adjustedY;
+        altitudeChange = adjustedY;
+        headingChange = adjustedX;
       } else if (e.ctrlKey) {
         altitudeChange = 0;
         headingChange = 0;
@@ -159,9 +174,9 @@ export class Game {
       console.log("Altitude change: " + altitudeChange);
       console.log("Heading change: " + headingChange);
       console.log("Speed change: " + speedChange);
-      this.planeList.setTargetAltitude(index, targetAltitude - altitudeChange * 100);
+      this.planeList.setTargetAltitude(index, targetAltitude - altitudeChange *100);
       this.planeList.setTargetHeading(index, targetHeading + headingChange);
-      this.planeList.setTargetSpeed(index, this.planeList.getPlaneByIndex(index).targetSpeed - speedChange);
+      this.planeList.setTargetSpeed(index, targetSpeed - speedChange);
     }
   }
 
@@ -177,13 +192,34 @@ export class Game {
   }
 
   handleMouseMove(e) {
+    this.updateMousePosition(e.clientX, e.clientY);
 
-    const latLon = this.map.xyToLatLon(e.clientX, e.clientY);
-    document.querySelector("#mouse").innerText = `x:${e.clientX}, y:${e.clientY}`;
-    document.querySelector("#mouse").innerText += ` lat:${latLon.lat.toFixed(5)}, lon:${latLon.lon.toFixed(5)}`;
+  }
 
-    this.mouseX = e.clientX;
-    this.mouseY = e.clientY;
+  resize() {
+    console.log("Resizing canvas to: " + this.glCanvas.clientWidth + "x" + this.glCanvas.clientHeight);
+    this.height = this.glCanvas.clientHeight;
+    this.width = this.glCanvas.clientWidth;
+
+    utils.resizeCanvasToDisplaySize(this.glCanvas);
+    utils.resizeCanvasToDisplaySize(this.textCanvas);
+    this.map.setDimensions(this.width, this.height);
+
+  }
+
+  handleResize() {
+
+    console.log("Resize event");
+    if (this.resizeTimeout) {
+      clearTimeout(this.resizeTimeout);
+    }
+    this.resizeTimeout = setTimeout(() => {
+      console.log("Resize timeout fired");
+      this.resizeTimeout = null;
+      this.resize();
+    }, this.resizeDelay);
+
+
   }
 
   setEventHandlers() {
@@ -191,10 +227,11 @@ export class Game {
     var handleScroll = this.handleScroll.bind(this);
     var handleClick = this.handleClick.bind(this);
     var handleMouseMove = this.handleMouseMove.bind(this);
+    var handleResize = this.handleResize.bind(this);
     this.textCanvas.addEventListener("wheel", handleScroll);
     this.textCanvas.addEventListener("click", handleClick);
     this.textCanvas.addEventListener("mousemove", handleMouseMove);
-    
+    window.addEventListener("resize", handleResize);
   }
 
 

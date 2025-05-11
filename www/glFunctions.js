@@ -1,5 +1,6 @@
-import { createMatrix } from "./matrixFunctions.js";
+import { createMatrix, replaceMatrix } from "./matrixFunctions.js";
 import * as geom from "./geometryFunctions.js";
+import * as convert from "./conversions.js";
 
 export function clearErrorQueue(gl, print = false) {
   if (print) {
@@ -284,11 +285,45 @@ export class GLInstance {
     const matrix = createMatrix(this.gl, plane.heading, planeLocation.x, planeLocation.y, 1.0, 1.0);
     this.drawScene(this.shapes.arrow.elementStartIndex, this.shapes.arrow.nIndices, matrix, color, 0);
   }
+
+  drawTargetIndicator(plane, color) {
+
+    const planeLocation = this.map.latLonToXY(plane.latitude, plane.longitude);
+    const matrix = createMatrix(this.gl, plane.targetHeading, planeLocation.x, planeLocation.y, 1.5, plane.targetSpeed / 20, 0, -1);
+    this.drawScene(this.shapes.rectangle.elementStartIndex, this.shapes.rectangle.nIndices, matrix, color, 0);
+
+  }
   drawPlaneSpeedIndicator(plane, color) {
     //console.log("Drawing plane pointer");
+
     const planeLocation = this.map.latLonToXY(plane.latitude, plane.longitude);
-    const matrix = createMatrix(this.gl, plane.heading, planeLocation.x, planeLocation.y, 1.0, 1.0);
+    const matrix = createMatrix(this.gl, plane.heading, planeLocation.x, planeLocation.y, 1.5, plane.speed / 20, 0, -1);
     this.drawScene(this.shapes.rectangle.elementStartIndex, this.shapes.rectangle.nIndices, matrix, color, 0);
+
+  }
+
+
+
+  drawPlane(plane, drawTarget, circleColor, arrowColor, speedIndicatorColor, targetIndicatorColor) {
+
+    if (arrowColor === undefined) {
+      arrowColor = circleColor;
+    }
+    if (speedIndicatorColor === undefined) {
+      speedIndicatorColor = circleColor;
+    }
+    if (targetIndicatorColor === undefined) {
+      targetIndicatorColor = speedIndicatorColor;
+    }
+
+    if (drawTarget && (plane.speed != plane.targetSpeed || plane.heading != plane.targetHeading)) {
+      this.drawTargetIndicator(plane, targetIndicatorColor);
+    }
+    this.drawPlaneSpeedIndicator(plane, speedIndicatorColor);
+    
+    this.drawCircle(plane, circleColor);
+    this.drawArrow(plane, arrowColor);
+    
   }
   drawHistoryPoint(plane, historyIndex, color, scale) {
     //console.log("Drawing history point: " + historyIndex);
@@ -353,7 +388,42 @@ export class GLInstance {
     }
   }
 
+  drawIlsApproachAltitudePoint(bearing, thresholdLat, thresholdLon, glideSlope, altitudeFt, color) {
+
+    const altMetres = convert.feetToMetres(altitudeFt);
+    const distance = altMetres / Math.tan(glideSlope * Math.PI / 180);
+    const pointLocation = geom.calculateDestination(thresholdLat, thresholdLon, distance, bearing);
+    const ilsLocation = this.map.latLonToXY(pointLocation.lat, pointLocation.lon);
+    var matrix = createMatrix(this.gl, bearing + 45, ilsLocation.x, ilsLocation.y, 2, 5);
+    this.drawScene(this.shapes.rectangle.elementStartIndex, this.shapes.rectangle.nIndices, matrix, color, 0);
+    replaceMatrix(this.gl, matrix, bearing + 135, ilsLocation.x, ilsLocation.y, 2, 5);
+    this.drawScene(this.shapes.rectangle.elementStartIndex, this.shapes.rectangle.nIndices, matrix, color, 0);
+  }
+
+  drawIlsApproach(runway, color) {
+    var approach;
+    for (let i = 0; i < runway.approaches.length; i++) {
+
+      if (runway.activeApproach === runway.approaches[i].runway) {
+        approach = runway.approaches[i];
+
+      }
+    }
+    const ilsLocationLatLon = geom.calculateDestination(runway.latitude, runway.longitude, runway.length / 2, approach.bearing + 180);
+    const ilsLocation = this.map.latLonToXY(ilsLocationLatLon.lat, ilsLocationLatLon.lon);
+    const bearing = approach.bearing + 180;
+    const length = this.map.distanceMetresToPixels(approach.length);
+    const glideSlope = approach.glideslope;
+
+
+    this.drawIlsApproachAltitudePoint(bearing, ilsLocationLatLon.lat, ilsLocationLatLon.lon, glideSlope, 1000, color);
+    this.drawIlsApproachAltitudePoint(bearing, ilsLocationLatLon.lat, ilsLocationLatLon.lon, glideSlope, 2000, color);
+    this.drawIlsApproachAltitudePoint(bearing, ilsLocationLatLon.lat, ilsLocationLatLon.lon, glideSlope, 3000, color);
   
+    const matrix = createMatrix(this.gl, bearing, ilsLocation.x, ilsLocation.y, 1.0, length, 0, -1);
+    this.drawScene(this.shapes.rectangle.elementStartIndex, this.shapes.rectangle.nIndices, matrix, color, 0);
+
+  }
 
   bufferPointsData() {
     this.clearErrorQueue();

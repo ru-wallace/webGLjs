@@ -4,24 +4,29 @@ import { PositionHistory } from "./positionHistory.js";
 export const EARTH_RADIUS_NAUTICAL_MILES = 3440.065; // in nautical miles
 export const FEET_TO_NAUTICAL_MILES = 1 / 6076.11549; // conversion factor from feet to nautical miles
 
-const METRES_TO_FEET = 3.28084; // conversion factor from metres to feet
+const FLIGHT_LEVEL_MIN = 1800; // in feet
+const FLIGHT_LEVEL_MAX = 10000; // in feet
 
-const G_FORCE_TO_METRES_PER_SECOND_SQUARED = 9.80665; // conversion factor from G-force to metres per second squared
+const MAX_SPEED_KTS = 300; // Maximum speed in knots
+const MIN_SPEED_KTS = 180; // Minimum speed in knots
+
+const MAX_SPEED_MPS = convert.ktsToMetresPerSecond(MAX_SPEED_KTS); // Maximum speed in metres per second
+const MIN_SPEED_MPS = convert.ktsToMetresPerSecond(MIN_SPEED_KTS); // Minimum speed in metres per second
 
 const MAX_TURN_RATE = 3; // Degrees per second
 const PLANE_MAX_VERTICAL_G_FORCE = 2; // Maximum vertical G-force
 const PLANE_MIN_VERTICAL_G_FORCE = 0.75; // Minimum vertical G-force
 
 
-const VERTICAL_POSITIVE_ACCELERATION_FPS2 = (PLANE_MAX_VERTICAL_G_FORCE - 1) * G_FORCE_TO_METRES_PER_SECOND_SQUARED * METRES_TO_FEET  // Maximum vertical positive acceleration in feet per second squared
-const VERTICAL_NEGATIVE_ACCELERATION_FPS2 = (1 - PLANE_MIN_VERTICAL_G_FORCE) * G_FORCE_TO_METRES_PER_SECOND_SQUARED * METRES_TO_FEET // Maximum vertical negative acceleration in feet per second squared
+const VERTICAL_POSITIVE_ACCELERATION_MPS2 = convert.gForceToVerticalAcceleration(PLANE_MAX_VERTICAL_G_FORCE, true);// Maximum vertical positive acceleration in metres per second squared
+const VERTICAL_NEGATIVE_ACCELERATION_MPS2 = convert.gForceToVerticalAcceleration(PLANE_MIN_VERTICAL_G_FORCE, true); // Maximum vertical negative acceleration in metres per second squared
 
 const PLANE_MAX_HORIZONTAL_G_FORCE = 0.3; // Maximum horizontal G-force
 
-const HORIZONTAL_ACCELERATION_FPS2 = (PLANE_MAX_HORIZONTAL_G_FORCE) * G_FORCE_TO_METRES_PER_SECOND_SQUARED * METRES_TO_FEET // Maximum horizontal acceleration in feet per second squared
+const HORIZONTAL_ACCELERATION_MPS2 = convert.gForceToMetresPerSecondSquared(PLANE_MAX_HORIZONTAL_G_FORCE)  // Maximum horizontal acceleration in metres per second squared
 
-const MAX_CLIMB_RATE = 2000; // Maximum climb rate in feet per minute
-const MAX_DESCENT_RATE = 2000; // Maximum descent rate in feet per minute
+const MAX_CLIMB_RATE = convert.feetPerMinuteToMetresPerSecond(2000); // Maximum climb rate in feet per minute
+const MAX_DESCENT_RATE = convert.feetPerMinuteToMetresPerSecond(2000); // Maximum descent rate in feet per minute
 class PlaneList {
     altitudes = []; //metres
     targetAltitudes = []; //metres
@@ -67,7 +72,8 @@ class PlaneList {
         this.boundsCenter = { lat: 0, lon: 0 }; // center of the radar in degrees
         this.minimumVerticalSeparation = convert.feetToMetres(1000); // minimum vertical separation in feet
         this.minimumHorizontalSeparation = convert.nauticalMilesToMetres(3); // minimum horizontal separation in nautical miles
-
+        this.selectedPlaneIndex = -1; // index of the selected plane
+        this.hoveredPlaneIndex = -1; // index of the hovered plane
         console.log("PlaneList created");
         console.log("Max planes: " + maxPlanes);
         console.log("Max history: " + maxHistory);
@@ -104,6 +110,62 @@ class PlaneList {
         return this.selectedPlaneIndex === index; // return true if the plane is selected
     }
 
+    setHoveredPlane(index) {
+        if (index < this.nPlanes) {
+            this.hoveredPlaneIndex = index; // set hovered plane index
+        } else {
+            this.hoveredPlaneIndex = -1; // no plane hovered
+            console.log("Invalid index: " + index + ". Cannot set hovered plane.");
+        }
+    }
+
+    getHoveredPlane() {
+        if (this.hoveredPlaneIndex >= 0 && this.hoveredPlaneIndex < this.nPlanes) {
+            return this.getPlaneByIndex(this.hoveredPlaneIndex); // return hovered plane
+        } else {
+            return null; // no plane hovered
+        }
+    }
+
+    getHoveredPlaneImperial() {
+        if (this.hoveredPlaneIndex >= 0 && this.hoveredPlaneIndex < this.nPlanes) {
+            var plane = this.getPlaneByIndexImperial(this.hoveredPlaneIndex); // return hovered plane
+            return plane;
+        } else {
+            return null; // no plane hovered
+        }
+    }
+    getHoveredPlaneIndex() {
+        return this.hoveredPlaneIndex; // return hovered plane index
+    }
+
+    isHoveredPlane(index) {
+        return this.hoveredPlaneIndex === index; // return true if the plane is hovered
+    }
+
+
+
+    getNearestPlane(lat, lon) {
+        var nearestPlaneIndex = -1;
+        var nearestPlaneDistance = Number.MAX_VALUE; // set to maximum value
+        for (var i = 0; i < this.nPlanes; i++) {
+            var distance = geom.calculateDistance(lat, lon, this.latitudes[i], this.longitudes[i]); // calculate distance from point to plane
+            if (distance < nearestPlaneDistance) {
+                nearestPlaneDistance = distance; // set new minimum distance
+                nearestPlaneIndex = i; // set new nearest plane index
+            }
+        }
+        if (nearestPlaneIndex >= 0 && nearestPlaneIndex < this.nPlanes) {
+            return {
+                index: nearestPlaneIndex,
+                distance: nearestPlaneDistance,
+            }
+        } else {
+            return null; // no plane found
+        }   
+    }
+
+
     updatePlane(index, deltaTime) {
         var vSpeed = this.verticalSpeeds[index]; 
         var hSpeed = this.speeds[index];
@@ -132,18 +194,18 @@ class PlaneList {
         // go towards target altitude, speed and heading
         if (this.targetAltitudes[index] !== undefined && this.targetAltitudes[index] !== null) {
             if (this.targetAltitudes[index] > this.altitudes[index]) {
-                this.verticalSpeeds[index] = Math.min(this.verticalSpeeds[index] + VERTICAL_POSITIVE_ACCELERATION_FPS2 * deltaTime, MAX_CLIMB_RATE); // increase vertical speed to climb
+                this.verticalSpeeds[index] = Math.min(this.verticalSpeeds[index] + VERTICAL_POSITIVE_ACCELERATION_MPS2 * deltaTime, MAX_CLIMB_RATE); // increase vertical speed to climb
             } else if (this.targetAltitudes[index] < this.altitudes[index]) {
-                this.verticalSpeeds[index] = Math.max(this.verticalSpeeds[index] - VERTICAL_NEGATIVE_ACCELERATION_FPS2 * deltaTime, -MAX_DESCENT_RATE); // decrease vertical speed to descend
+                this.verticalSpeeds[index] = Math.max(this.verticalSpeeds[index] - VERTICAL_NEGATIVE_ACCELERATION_MPS2 * deltaTime, -MAX_DESCENT_RATE); // decrease vertical speed to descend
             } else {
                 this.verticalSpeeds[index] = 0; // stop climbing or descending
             }
         }
         if (this.targetSpeeds[index] !== undefined && this.targetSpeeds[index] !== null) {
             if (this.targetSpeeds[index] > this.speeds[index]) {
-                this.speeds[index] = Math.min(this.speeds[index] + HORIZONTAL_ACCELERATION_FPS2 * deltaTime, this.targetSpeeds[index]); // increase speed to target speed
+                this.speeds[index] = Math.min(this.speeds[index] + HORIZONTAL_ACCELERATION_MPS2 * deltaTime, this.targetSpeeds[index]); // increase speed to target speed
             } else if (this.targetSpeeds[index] < this.speeds[index]) {
-                this.speeds[index] = Math.max(this.speeds[index] - HORIZONTAL_ACCELERATION_FPS2 * deltaTime, this.targetSpeeds[index]); // decrease speed to target speed
+                this.speeds[index] = Math.max(this.speeds[index] - HORIZONTAL_ACCELERATION_MPS2 * deltaTime, this.targetSpeeds[index]); // decrease speed to target speed
             } else {
                 this.speeds[index] = this.targetSpeeds[index]; // stop accelerating or decelerating
             }
@@ -204,21 +266,25 @@ class PlaneList {
 
     setTargetFlightLevel(index, setTargetFlightLevel) {
         if (index >= 0 && index < this.nPlanes) {
-            this.targetAltitudes[index] = setTargetFlightLevel * 100; // set target altitude to current altitude
+            this.setTargetAltitude(index, setTargetFlightLevel * 100); // set target altitude to current altitude
         } else {
             console.log("Invalid index. Cannot set target flight level.");
         }
     }
     setTargetAltitude(index, targetAltitudeFt) {
         if (index >= 0 && index < this.nPlanes) {
-            this.targetAltitudes[index] = targetAltitudeFt; // set target altitude to current altitude
+            targetAltitudeFt = Math.max(FLIGHT_LEVEL_MIN, Math.min(FLIGHT_LEVEL_MAX * 100, targetAltitudeFt)); // limit altitude to between 1800 and FL410
+            this.targetAltitudes[index] = convert.feetToMetres(targetAltitudeFt); // set target altitude to current altitude
+            console.log("Set target altitude: " + targetAltitudeFt + "ft for plane: " + this.flightNumbers[index]);
         } else {
             console.log("Invalid index. Cannot set target altitude.");
         }
     }
     setTargetSpeed(index, targetSpeedKts) {
         if (index >= 0 && index < this.nPlanes) {
-            this.targetSpeeds[index] = targetSpeedKts; // set target speed to current speed
+            targetSpeedKts = Math.max(MIN_SPEED_KTS, Math.min(MAX_SPEED_KTS, targetSpeedKts)); // limit speed to between 180 and 300 knots
+            this.targetSpeeds[index] = convert.ktsToMetresPerSecond(targetSpeedKts); // set target speed to current speed
+            console.log("Set target speed: " + targetSpeedKts + "kts for plane: " + this.flightNumbers[index]);
         } else {
             console.log("Invalid index. Cannot set target speed.");
         }
@@ -311,8 +377,8 @@ class PlaneList {
         let randomRadius = Math.round(Math.random() * this.boundsRadius);
         let randomLatLon = geom.calculateDestination(this.boundsCenter.lat, this.boundsCenter.lon, randomRadius, randomDirection);
         let randomHeading = Math.round(Math.random() * 360);
-        let randomSpeed = Math.round(Math.random() * 900) + 100;
-        let randomAltitude = Math.round(Math.random() * 10000) + 1000;
+        let randomSpeed = Math.round(Math.random() * (MAX_SPEED_KTS-MIN_SPEED_KTS)) + MIN_SPEED_KTS;
+        let randomAltitude = Math.round(Math.random() * (FLIGHT_LEVEL_MAX-FLIGHT_LEVEL_MIN)) + FLIGHT_LEVEL_MIN;
         return this.addPlane(flightNumber, type, squawk, randomLatLon.lat, randomLatLon.lon, randomAltitude, randomSpeed, randomHeading, 0); // add plane with random parameters
     }
 

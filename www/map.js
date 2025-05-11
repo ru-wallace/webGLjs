@@ -85,20 +85,18 @@ class ATCMap {
     this.minLon = minLon;
     this.maxLat = maxLat;
     this.maxLon = maxLon;
-    console.log("Set bounds: (" + minLat + " " + maxLon + ") (" + maxLat + " " + maxLon + ")");
+    console.log("Set bounds: (" + minLat + " " + maxLon + ") (" + maxLat + " " + minLon + ")");
   }
 
   distanceNMToPixels(distanceNM) {
-    console.log("convert nm to pixels: " + distanceNM);
+    // console.log("convert nm to pixels: " + distanceNM);
 
     const latRange = this.maxLat - this.minLat;
-    console.log("latRange: " + latRange);
+    // console.log("latRange: " + latRange);
 
-    const lonRange = this.maxLon - this.minLon;
     const latDistancePx = (distanceNM / 60) * (this.heightPx / latRange);
     return latDistancePx;
   }
-
 
 
   distancePxToNM(distancePx) {
