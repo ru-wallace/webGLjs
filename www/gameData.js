@@ -118,6 +118,8 @@ export class Game {
     this.resizeTimeout = null;
     this.resizeDelay = 100;
 
+    this.simulationSpeed = 1; // time multiplier for simulation speed
+    document.querySelector("#sim-speed").innerText = this.simulationSpeed.toFixed(2);
 
     this.setEventHandlers();
 
@@ -180,7 +182,8 @@ export class Game {
     }
   }
 
-  handleClick(e) {
+
+  togglePause(e) {
 
     this.pause = !this.pause;
     if (this.pause) {
@@ -189,6 +192,16 @@ export class Game {
       this.textCanvas.style.cursor = "default";
       this.textCanvas.style.backgroundColor = "rgba(0, 0, 0, 0.0)";
     }
+  }
+
+  increaseSimulationSpeed() {
+    this.simulationSpeed = Math.min(this.simulationSpeed *2, 4);
+    document.querySelector("#sim-speed").innerText = this.simulationSpeed.toFixed(2);
+  }
+
+  decreaseSimulationSpeed() {
+    this.simulationSpeed = Math.max(this.simulationSpeed / 2, 0.25);
+    document.querySelector("#sim-speed").innerText = this.simulationSpeed.toFixed(2);
   }
 
   handleMouseMove(e) {
@@ -204,6 +217,21 @@ export class Game {
     utils.resizeCanvasToDisplaySize(this.glCanvas);
     utils.resizeCanvasToDisplaySize(this.textCanvas);
     this.map.setDimensions(this.width, this.height);
+
+  }
+
+  handleKeyUp(e) {
+    console.log("Key up event: " + e.key);
+    if (e.key === " " || e.yey === "Space") {
+      this.togglePause(e);
+    } else if (e.key === "h") {
+      this.showHistory = !this.showHistory;
+    } else if (e.key === ",") {
+      this.decreaseSimulationSpeed();
+    } else if (e.key === ".") {
+      this.increaseSimulationSpeed();
+    }
+
 
   }
 
@@ -225,11 +253,11 @@ export class Game {
   setEventHandlers() {
     // Scrollwheel functions
     var handleScroll = this.handleScroll.bind(this);
-    var handleClick = this.handleClick.bind(this);
+    var handleKeyUp = this.handleKeyUp.bind(this);
     var handleMouseMove = this.handleMouseMove.bind(this);
     var handleResize = this.handleResize.bind(this);
     this.textCanvas.addEventListener("wheel", handleScroll);
-    this.textCanvas.addEventListener("click", handleClick);
+    document.addEventListener("keyup", handleKeyUp);
     this.textCanvas.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("resize", handleResize);
   }

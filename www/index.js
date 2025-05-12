@@ -167,7 +167,7 @@ async function main() {
 
     now *= 0.001; // convert to seconds
 
-    deltaTime = now - then;
+    deltaTime = (now - then) * game.simulationSpeed; // seconds since last frame multiplied by simulation speed
     then = now;
 
     glO.setViewport();
