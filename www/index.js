@@ -253,7 +253,12 @@ async function main() {
         arrowColor = [1.0, 1.0, 1.0, 1];
         targetHeadingColor = [1.0, 1.0, 0.0, 1];
         showTarget = true;
-      }
+
+        const distanceToIntercept = geom.calculateDistanceToIntercept(plane.latitude, plane.longitude, plane.heading, runways[0].latitude, runways[0].longitude, runways[0].approaches[0].bearing );
+        const distanceToInterceptNM = convert.metresToNauticalMiles(distanceToIntercept);
+
+        document.querySelector("#dti").innerText = distanceToInterceptNM.toFixed(2);
+      } 
 
 
 

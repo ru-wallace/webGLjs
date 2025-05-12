@@ -102,7 +102,33 @@ export function calculateMapBounds(widthPx, heightPx, lat, lon, radarRadiusNM, s
     lonMax,
   };
   
+}
 
+export function calculateDistanceToIntercept(lat, lon, bearing, targetLinePointLat, targetLinePointLon, targetBearing) {
+  // Calculate the distance to intercept a target line given a starting point, bearing, and target line point
+  const gradient = Math.tan(convert.degreesToRadians(bearing));
+  const yIntercept = lat - gradient * lon;
+  
+  const targetGradient = Math.tan(convert.degreesToRadians(targetBearing));
+  const targetYIntercept = targetLinePointLat - targetGradient * targetLinePointLon;
+
+  const xIntercept = (targetYIntercept - yIntercept) / (gradient - targetGradient);
+  const yInterceptPoint = gradient * xIntercept + yIntercept;
+  const distance = calculateDistance(lat, lon, yInterceptPoint, xIntercept);
+  return distance;
+}
+
+
+
+export function calculateTurnStart(distanceToIntercept, angleChange, speed, turnRate)
+{
+
+  const turnTime = Math.abs(angleChange) / turnRate; // time to turn in seconds
+  const turnDistance = speed * turnTime; // distance travelled during turn in metres
+  const turnRadius = turnDistance / (2 * Math.sin(angleChange / 2)); // radius of turn in metres
+  const turnStartDistance = distanceToIntercept - turnRadius; // distance to turn start in metres
+
+  return turnStartDistance;
 }
 
 const defaultTransformParams = {
