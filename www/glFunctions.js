@@ -146,20 +146,36 @@ export class GLInstance {
     this.shapes = shapes;
     this.map = map;
     this.gl = gl;
+    this.matrix = createMatrix(gl, 0, 0, 0, 1, 1);
 
     this.buffers = {
       position: this.initPositionBuffer(),
     }
-    this.vao = null;
-    this.generateVAO();
-    this.bindVao();
 
-    this.buffers.index = this.initIndexBuffer();
+    this.vaos = {};
+    var nPoints = 0;
 
-    this.setPositionAttribute();
-    this.bindElementBuffer();
-    this.bufferIndicesData();
+    for (const shape in this.shapes) {
+      if (shape === "points" || shape === "indices") {
+        continue;
+      }
+      console.log("Shape: " + shape);
+      console.log("Shape points: " + this.shapes[shape].nPoints);
+      console.log("Shape indices: " + this.shapes[shape].indices.length);
+      const vao = this.createVAO(this.shapes[shape].indices, nPoints + this.shapes[shape].zeroIndex);
+      this.shapes[shape].vao = vao;
+      nPoints += this.shapes[shape].nPoints;
+
+    }
+
     this.bufferPointsData();
+
+    // this.buffers.index = this.initIndexBuffer();
+
+    // this.setPositionAttribute();
+    // this.bindElementBuffer();
+    // this.bufferIndicesData();
+
     this.setViewport();
 
     this.clearColor = [0.0, 0.0, 0.0, 1.0];
@@ -177,6 +193,10 @@ export class GLInstance {
 
   setMatrix(uMatrix) {
     setMatrix(this.gl, this.program, this.uniformLocations.uMatrix, uMatrix);
+  }
+  updateMatrix(heading, x, y, scaleX, scaleY, offsetX=0, offsetY=0) {
+    replaceMatrix(this.gl, this.matrix, heading, x, y, scaleX, scaleY, offsetX, offsetY);
+    setMatrix(this.gl, this.program, this.uniformLocations.uMatrix, this.matrix);
   }
 
   generateVAO() {
@@ -275,30 +295,34 @@ export class GLInstance {
   drawCircle(plane, color) {
     //console.log("Drawing plane circle");
     const planeLocation = this.map.latLonToXY(plane.latitude, plane.longitude);
-    const matrix = createMatrix(this.gl, plane.heading, planeLocation.x, planeLocation.y, 0.5, 0.5);
-    this.drawScene(this.shapes.circle.elementStartIndex, this.shapes.circle.nIndices, matrix, color, 0);
+    this.updateMatrix(plane.heading, planeLocation.x, planeLocation.y, 0.5, 0.5);
+    this.drawShape(this.shapes.circle, color, 0);
+    //this.drawScene(this.shapes.circle.elementStartIndex, this.shapes.circle.nIndices, matrix, color, 0);
   }
 
   drawArrow(plane, color) {
     //console.log("Drawing plane triangle");
     const planeLocation = this.map.latLonToXY(plane.latitude, plane.longitude);
-    const matrix = createMatrix(this.gl, plane.heading, planeLocation.x, planeLocation.y, 1.0, 1.0);
-    this.drawScene(this.shapes.arrow.elementStartIndex, this.shapes.arrow.nIndices, matrix, color, 0);
+    this.updateMatrix(plane.heading, planeLocation.x, planeLocation.y, 1.0, 1.0);
+    // this.drawScene(this.shapes.arrow.elementStartIndex, this.shapes.arrow.nIndices, matrix, color, 0);
+    this.drawShape(this.shapes.arrow, color, 0);
   }
 
   drawTargetIndicator(plane, color) {
 
     const planeLocation = this.map.latLonToXY(plane.latitude, plane.longitude);
-    const matrix = createMatrix(this.gl, plane.targetHeading, planeLocation.x, planeLocation.y, 1.5, plane.targetSpeed / 20, 0, -1);
-    this.drawScene(this.shapes.rectangle.elementStartIndex, this.shapes.rectangle.nIndices, matrix, color, 0);
+    this.updateMatrix(plane.targetHeading, planeLocation.x, planeLocation.y, 1.5, plane.targetSpeed / 20, 0, -1);
+    //this.drawScene(this.shapes.rectangle.elementStartIndex, this.shapes.rectangle.nIndices, matrix, color, 0);
+    this.drawShape(this.shapes.rectangle, color, 0);
 
   }
   drawPlaneSpeedIndicator(plane, color) {
     //console.log("Drawing plane pointer");
 
     const planeLocation = this.map.latLonToXY(plane.latitude, plane.longitude);
-    const matrix = createMatrix(this.gl, plane.heading, planeLocation.x, planeLocation.y, 1.5, plane.speed / 20, 0, -1);
-    this.drawScene(this.shapes.rectangle.elementStartIndex, this.shapes.rectangle.nIndices, matrix, color, 0);
+    this.updateMatrix(plane.heading, planeLocation.x, planeLocation.y, 1.5, plane.speed / 20, 0, -1);
+    //this.drawScene(this.shapes.rectangle.elementStartIndex, this.shapes.rectangle.nIndices, matrix, color, 0);
+    this.drawShape(this.shapes.rectangle, color, 0);
 
   }
 
@@ -331,20 +355,23 @@ export class GLInstance {
     //console.log("History point: " + historyPoint.latitude + ", " + historyPoint.longitude);
     //console.log("scale: " + scale);
     let historyPosition = this.map.latLonToXY(historyPoint.latitude, historyPoint.longitude);
-    let matrix = createMatrix(this.gl, plane.heading, historyPosition.x, historyPosition.y, scale, scale);
-    this.drawScene(this.shapes.filledCircle.elementStartIndex, this.shapes.filledCircle.nIndices, matrix, color, 0);
+    this.updateMatrix(plane.heading, historyPosition.x, historyPosition.y, scale, scale);
+    // this.drawScene(this.shapes.filledCircle.elementStartIndex, this.shapes.filledCircle.nIndices, matrix, color, 0);
+    this.drawShape(this.shapes.filledCircle, color, 0);
   }
 
   drawRadarCircle(color) {
-    const matrix = createMatrix(this.gl, 0, this.map.widthPx / 2, this.map.heightPx / 2, 1.0, 1.0);
-    this.drawScene(this.shapes.radarCircle.elementStartIndex, this.shapes.radarCircle.nIndices, matrix, color, 0);
+    this.updateMatrix(0, this.map.widthPx / 2, this.map.heightPx / 2, 1.0, 1.0);
+    //this.drawScene(this.shapes.radarCircle.elementStartIndex, this.shapes.radarCircle.nIndices, matrix, color, 0);
+    this.drawShape(this.shapes.radarCircle, color, 0);
   }
 
   drawVorSymbol(lat, lon, color) {
     const vorLocation = this.map.latLonToXY(lat, lon);
     
-    const matrix = createMatrix(this.gl, 0, vorLocation.x, vorLocation.y, 1.0, 1.0);
-    this.drawScene(this.shapes.vorSymbol.elementStartIndex, this.shapes.vorSymbol.nIndices, matrix, color, 0);
+    this.updateMatrix(0, vorLocation.x, vorLocation.y, 1.0, 1.0);
+    this.drawShape(this.shapes.vorSymbol, color, 0);
+    //this.drawScene(this.shapes.vorSymbol.elementStartIndex, this.shapes.vorSymbol.nIndices, matrix, color, 0);
   }
 
   drawRunway(runway, color) {
@@ -355,9 +382,11 @@ export class GLInstance {
     const runwayScale = this.map.distanceMetresToPixels(runway.length);
     const runwayWidthScale = Math.max(this.map.distanceMetresToPixels(runway.width), 2);
 
-    const matrix = createMatrix(this.gl, runway.bearing+90, runwayLocation.x, runwayLocation.y, runwayScale, runwayWidthScale);
-    this.drawScene(this.shapes.rectangle.elementStartIndex, this.shapes.rectangle.nIndices, matrix, color, 0);
+    this.updateMatrix(runway.bearing+90, runwayLocation.x, runwayLocation.y, runwayScale, runwayWidthScale);
+    //this.drawScene(this.shapes.rectangle.elementStartIndex, this.shapes.rectangle.nIndices, matrix, color, 0);
+    this.drawShape(this.shapes.rectangle, color, 0);
   }
+
 
   drawIdbSymbol(lat, lon, color) {
     const idbLocation = this.map.latLonToXY(lat, lon);
@@ -370,10 +399,12 @@ export class GLInstance {
     const outerDotsRadius = 1;
     const nOuterRings = 5;
 
-    var matrix = createMatrix(this.gl, 0, idbLocation.x, idbLocation.y, innerDotRadius, innerDotRadius);
-    this.drawScene(this.shapes.filledCircle.elementStartIndex, this.shapes.filledCircle.nIndices, matrix, color, 0);
-    matrix = createMatrix(this.gl, 0, idbLocation.x, idbLocation.y, innerRingRadius, innerRingRadius);
-    this.drawScene(this.shapes.circle.elementStartIndex, this.shapes.circle.nIndices, matrix, color, 0);
+    this.updateMatrix(0, idbLocation.x, idbLocation.y, innerDotRadius, innerDotRadius);
+    //this.drawScene(this.shapes.filledCircle.elementStartIndex, this.shapes.filledCircle.nIndices, matrix, color, 0);
+    this.drawShape(this.shapes.filledCircle,color, 0);
+    this.updateMatrix(0, idbLocation.x, idbLocation.y, innerRingRadius, innerRingRadius);
+    this.drawShape(this.shapes.circle,  color, 0);
+    //this.drawScene(this.shapes.circle.elementStartIndex, this.shapes.circle.nIndices, matrix, color, 0);
     
 
     for (let i = 0; i < nOuterRings; i++) {
@@ -381,8 +412,9 @@ export class GLInstance {
         const angle = j * increment;
         const x = Math.cos(angle) *  i * ringWidth;
         const y = Math.sin(angle) *  i * ringWidth;
-        matrix = createMatrix(this.gl, 0, idbLocation.x + x, idbLocation.y - y, outerDotsRadius, outerDotsRadius);
-        this.drawScene(this.shapes.filledCircle.elementStartIndex, this.shapes.filledCircle.nIndices, matrix, color, 0);
+        this.updateMatrix(0, idbLocation.x + x, idbLocation.y - y, outerDotsRadius, outerDotsRadius);
+        //this.drawScene(this.shapes.filledCircle.elementStartIndex, this.shapes.filledCircle.nIndices, matrix, color, 0);
+        this.drawShape(this.shapes.filledCircle, color, 0);
       }
       ringWidth = ringWidth + 0.6;
     }
@@ -394,10 +426,12 @@ export class GLInstance {
     const distance = altMetres / Math.tan(glideSlope * Math.PI / 180);
     const pointLocation = geom.calculateDestination(thresholdLat, thresholdLon, distance, bearing);
     const ilsLocation = this.map.latLonToXY(pointLocation.lat, pointLocation.lon);
-    var matrix = createMatrix(this.gl, bearing + 45, ilsLocation.x, ilsLocation.y, 2, 5);
-    this.drawScene(this.shapes.rectangle.elementStartIndex, this.shapes.rectangle.nIndices, matrix, color, 0);
-    replaceMatrix(this.gl, matrix, bearing + 135, ilsLocation.x, ilsLocation.y, 2, 5);
-    this.drawScene(this.shapes.rectangle.elementStartIndex, this.shapes.rectangle.nIndices, matrix, color, 0);
+    this.updateMatrix(bearing + 45, ilsLocation.x, ilsLocation.y, 2, 5);
+    //this.drawScene(this.shapes.rectangle.elementStartIndex, this.shapes.rectangle.nIndices, matrix, color, 0);
+    this.drawShape(this.shapes.rectangle, color, 0);
+    this.updateMatrix(bearing + 135, ilsLocation.x, ilsLocation.y, 2, 5);
+    //this.drawScene(this.shapes.rectangle.elementStartIndex, this.shapes.rectangle.nIndices, matrix, color, 0);
+    this.drawShape(this.shapes.rectangle, color, 0);
   }
 
   drawIlsApproach(runway, color) {
@@ -420,9 +454,24 @@ export class GLInstance {
     this.drawIlsApproachAltitudePoint(bearing, ilsLocationLatLon.lat, ilsLocationLatLon.lon, glideSlope, 2000, color);
     this.drawIlsApproachAltitudePoint(bearing, ilsLocationLatLon.lat, ilsLocationLatLon.lon, glideSlope, 3000, color);
   
-    const matrix = createMatrix(this.gl, bearing, ilsLocation.x, ilsLocation.y, 1.0, length, 0, -1);
-    this.drawScene(this.shapes.rectangle.elementStartIndex, this.shapes.rectangle.nIndices, matrix, color, 0);
+    this.updateMatrix(bearing, ilsLocation.x, ilsLocation.y, 1.0, length, 0, -1);
+    //this.drawScene(this.shapes.rectangle.elementStartIndex, this.shapes.rectangle.nIndices, matrix, color, 0);
+    this.drawShape(this.shapes.rectangle, color, 0);
 
+  }
+
+  drawShape(shape, color, zLayer=0.0) {
+    this.gl.useProgram(this.program);
+    this.setColor(color);
+    this.setZLayer(zLayer);
+
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.buffers.position);
+    //this.setMatrix(matrix);
+    this.gl.bindVertexArray(shape.vao);
+
+   // this.gl.drawElements(this.gl.TRIANGLES, nElements, this.gl.UNSIGNED_SHORT, firstElementIndex * Uint16Array.BYTES_PER_ELEMENT);
+    this.gl.drawElements(this.gl.TRIANGLES, shape.nIndices, this.gl.UNSIGNED_SHORT, shape.elementStartIndex * Uint16Array.BYTES_PER_ELEMENT);
+    this.gl.bindVertexArray(null);
   }
 
   bufferPointsData() {
@@ -438,6 +487,40 @@ export class GLInstance {
     this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.buffers.index);
     this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(this.shapes.indices), this.gl.STATIC_DRAW);
     console.log("Buffered indices data: nIndices: " + this.shapes.indices.length);
+  }
+
+
+
+  createVAO(indexArray, startOffset) {
+
+    const offset = startOffset  * Float32Array.BYTES_PER_ELEMENT;
+    //this.shapes.points.push(...vertexArray);
+    //this.shapes.points.push(...vertexArray);
+    this.clearErrorQueue();
+    const vao = this.gl.createVertexArray();  
+
+    this.gl.bindVertexArray(vao);
+
+    this.gl.enableVertexAttribArray(this.attribLocations.position);
+
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.buffers.position);
+
+    this.gl.vertexAttribPointer(
+      this.attribLocations.position, 
+      2, // numComponents
+      this.gl.FLOAT, // type
+      false, // normalize
+      0, // stride
+      offset, // offset
+    );
+
+    const indexBuffer = this.gl.createBuffer();
+    this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+    this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indexArray), this.gl.STATIC_DRAW);
+    //this.gl.bindVertexArray(0);
+
+    return vao;
+
   }
   
 }

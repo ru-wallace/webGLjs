@@ -7,6 +7,7 @@ function getStartIndex(points) {
 export function generateShapes(map, params) {
   const defaultParams = {
     radarCircle: {
+
       radius: 10,
       nPoints: 100,
       lineWidth: 0.5,
@@ -44,33 +45,45 @@ export function generateShapes(map, params) {
     radarCircle: {
       zeroIndex: 0,
       elementStartIndex: 0,
+      nPoints: 0,
       nIndices: 0,
-
+      indices: [],
     },
     circle: {
       zeroIndex: 0,
       elementStartIndex: 0,
+      nPoints: 0,
       nIndices: 0,
+      indices: [],
     },
     arrow: {
       zeroIndex: 0,
       elementStartIndex: 0,
+      nPoints: 0,
       nIndices: 0,
+
+      indices: [],
     },
     rectangle: {
       zeroIndex: 0,
       elementStartIndex: 0,
+      nPoints: 0,
       nIndices: 0,
+      indices: [],
     },
     filledCircle: {
       zeroIndex: 0,
       elementStartIndex: 0,
+      nPoints: 0,
       nIndices: 0,
+      indices: [],
     },
     vorSymbol: {
       zeroIndex: 0,
       elementStartIndex: 0,
+      nPoints: 0,
       nIndices: 0,
+      indices: [],
     },
 
   };
@@ -95,9 +108,10 @@ export function generateShapes(map, params) {
   indices.push(...radarCircle.indices);
 
   shapes.radarCircle.nIndices = radarCircle.indices.length;
-
-  shapes.circle.zeroIndex = getStartIndex(points);
-  shapes.circle.elementStartIndex = indices.length;
+  shapes.radarCircle.nPoints = radarCircle.points.length;
+  shapes.radarCircle.indices = radarCircle.indices;
+  shapes.circle.zeroIndex = 0;
+  shapes.circle.elementStartIndex = 0;
 
   // Plane Circle
 
@@ -113,11 +127,12 @@ export function generateShapes(map, params) {
   points.push(...circle.points);
   indices.push(...circle.indices);
   shapes.circle.nIndices = circle.indices.length;
-
+  shapes.circle.indices = circle.indices;
+  shapes.circle.nPoints = circle.points.length;
   // Plane Pointer arrow
 
-  shapes.arrow.zeroIndex = getStartIndex(points);
-  shapes.arrow.elementStartIndex = indices.length;
+  shapes.arrow.zeroIndex = 0;
+  shapes.arrow.elementStartIndex = 0;
 
   const arrow = map.generateArrow(
     shapesParams.arrow.width,
@@ -127,10 +142,11 @@ export function generateShapes(map, params) {
   points.push(...arrow.points);
   indices.push(...arrow.indices);
   shapes.arrow.nIndices = arrow.indices.length;
-
+  shapes.arrow.indices = arrow.indices;
+  shapes.arrow.nPoints = arrow.points.length;
   // Rectangle for speed indicator
-  shapes.rectangle.zeroIndex = getStartIndex(points);
-  shapes.rectangle.elementStartIndex = indices.length;
+  shapes.rectangle.zeroIndex = 0;
+  shapes.rectangle.elementStartIndex = 0;
 
   
   const rectangle = map.generateRectangle(
@@ -141,10 +157,11 @@ export function generateShapes(map, params) {
   points.push(...rectangle.points);
   indices.push(...rectangle.indices);
   shapes.rectangle.nIndices = rectangle.indices.length;
+  shapes.rectangle.nPoints = rectangle.points.length;
+  shapes.rectangle.indices = rectangle.indices;
 
-
-  shapes.filledCircle.zeroIndex = getStartIndex(points);
-  shapes.filledCircle.elementStartIndex = indices.length;
+  shapes.filledCircle.zeroIndex = 0;
+  shapes.filledCircle.elementStartIndex = 0;
 
   const filledCircleData = map.generateFilledCircle(
     shapesParams.filledCircle.radius,
@@ -155,17 +172,17 @@ export function generateShapes(map, params) {
   indices.push(...filledCircleData.indices);
 
   shapes.filledCircle.nIndices = filledCircleData.indices.length;
-  shapes.points = points;
-  shapes.indices = indices;
-
+  shapes.filledCircle.indices = filledCircleData.indices;
+  shapes.filledCircle.nPoints = filledCircleData.points.length;
   // VOR Symbol uses filledCircle points and indices, adds hexagon and square
 
-  shapes.vorSymbol.zeroIndex = shapes.filledCircle.zeroIndex;
+  shapes.vorSymbol.zeroIndex = -filledCircleData.points.length;
+
   shapes.vorSymbol.elementStartIndex = shapes.filledCircle.elementStartIndex;
 
   const vorHexSymbolNPoints = 6;
   const vorHexSymbolLineWidth = shapesParams.vorSymbol.lineWidth;
-  const vorHexSymbolZeroIndex = getStartIndex(points);
+  const vorHexSymbolZeroIndex = filledCircleData.points.length/2;
 
   const vorHexSymbol = map.generateCircle(
     shapesParams.vorSymbol.sizePx,
@@ -184,7 +201,7 @@ export function generateShapes(map, params) {
   const vorSquareSymbolScaleX = 1;
   const vorSquareSymbolScaleY =  (Math.cos(Math.PI / 6));
   const vorSquareSymbolLineWidth = shapesParams.vorSymbol.lineWidth;
-  const vorSquareSymbolZeroIndex = getStartIndex(points);
+  const vorSquareSymbolZeroIndex = vorHexSymbolZeroIndex + vorHexSymbol.points.length/2; // start after hexagon points
   const vorSquareRotation = 45; // 45 degrees to rotate the square to match the hexagon
   const vorSquareSymbol = map.generateCircle(
     vorSquareSymbolRadius,
@@ -195,13 +212,17 @@ export function generateShapes(map, params) {
     vorSquareSymbolScaleX,
     vorSquareSymbolScaleY
   );
+
+  shapes.vorSymbol.indices.push(...filledCircleData.indices);
+  shapes.vorSymbol.indices.push(...vorHexSymbol.indices);
+  shapes.vorSymbol.indices.push(...vorSquareSymbol.indices);
+
   points.push(...vorSquareSymbol.points);
   indices.push(...vorSquareSymbol.indices);
   shapes.vorSymbol.nIndices = shapes.filledCircle.nIndices + vorHexSymbol.indices.length + vorSquareSymbol.indices.length;
-
-
-
-
+  shapes.vorSymbol.nPoints = filledCircleData.points.length + vorHexSymbol.points.length + vorSquareSymbol.points.length;
+  shapes.points = points;
+  shapes.indices = indices;
 
   console.log("shapes: ", shapes);
   return shapes;

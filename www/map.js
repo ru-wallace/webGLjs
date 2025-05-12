@@ -265,6 +265,8 @@ class ATCMap {
 
   generateCircle(radiusPx, rotation, numPoints, lineThicknessPx, startIndex = 0, scaleX=1, scaleY=1) {
     console.log("Generating circle. radiusPX:" + radiusPx + " nPoints: " + numPoints + " lineWidth: " + lineThicknessPx);
+    console.log("scaleX: " + scaleX + " scaleY: " + scaleY);
+    console.log("startIndex: " + startIndex);
     const circlePoints = this.generateCirclePoints(radiusPx, rotation, numPoints, lineThicknessPx, scaleX, scaleY);
     const circleIndices = this.generateCircleIndices(circlePoints, startIndex);
     console.log("Circle. (" + circlePoints.length + " points, " + circleIndices.length + " indices)");
@@ -286,7 +288,7 @@ class ATCMap {
 
     const points = [centre.x, centre.y]; // Start with the centre point
     var indices = [];
-    for (let i = 0; i < numPoints; i++) {
+    for (let i = 0; i <= numPoints; i++) {
       const angle = (i / numPoints) * 2 * Math.PI;
 
       const x = centre.x + radiusPx * Math.cos(angle);
@@ -302,13 +304,16 @@ class ATCMap {
     }
 
     // Connect the last point to the first point
-    indices.push(0, 1, numPoints - 1);
+    indices.push(0, 1, numPoints);
 
     indices = indices.map(index => index + startIndex); // Adjust indices to start from 0
 
     console.log("Filled circle. (" + points.length + " points, " + indices.length + " indices)");
-    //console.log("points: " + points);
-    //console.log("indices: " + indices);
+    console.log("points: " + points);
+    console.log("indices: " + indices);
+    for (let i=0; i<indices.length; i++){
+      console.log("" + i + ": index: " + indices[i], " point: " + points[indices[i]*2] + " " + points[indices[i]*2+1]);
+    }
     return { points, indices }; // Adjust indices to start from 0
   }
 
