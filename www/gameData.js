@@ -195,7 +195,7 @@ export class Game {
   }
 
   increaseSimulationSpeed() {
-    this.simulationSpeed = Math.min(this.simulationSpeed *2, 4);
+    this.simulationSpeed = Math.min(this.simulationSpeed *2, 16);
     document.querySelector("#sim-speed").innerText = this.simulationSpeed.toFixed(2);
   }
 

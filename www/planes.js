@@ -342,6 +342,12 @@ class PlaneList {
         return true; // flight number is unique
     }
 
+    getTurnRadius(index) {
+        const turnTime90 = 90 / MAX_TURN_RATE; // time to turn 90 degrees
+        const turnCircumference = this.speeds[index] * turnTime90 * 4; // circumference of turn
+        const turnRadius = turnCircumference / (2 * Math.PI); // radius of turn
+        return turnRadius; // return radius of turn
+
     addPlane(flightNumber, type, squawk, latitude, longitude, altitudeFt, speedKts, heading, verticalSpeedFpM) {
         if (this.nPlanes >= this.maxPlanes) {
             console.log("Plane list is full. Cannot add more planes.");

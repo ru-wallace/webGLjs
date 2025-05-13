@@ -117,7 +117,7 @@ async function main() {
   const plane2 = game.planeList.addRandomPlane("BAW456", "Boeing 747", "5678");
 
   game.planeList.setTargetFlightLevel(plane1, 60);
-  game.planeList.setTargetHeading(plane1, 90);
+  game.planeList.setTargetHeading(plane1, 315);
   game.planeList.setTargetSpeed(plane1, 150);
 
   console.log("Min Horizontal Separation: " + game.planeList.minimumHorizontalSeparation);
@@ -256,7 +256,7 @@ async function main() {
 
         const distanceToIntercept = geom.calculateDistanceToIntercept(plane.latitude, plane.longitude, plane.heading, runways[0].latitude, runways[0].longitude, runways[0].approaches[0].bearing );
         const distanceToInterceptNM = convert.metresToNauticalMiles(distanceToIntercept);
-
+        
         document.querySelector("#dti").innerText = distanceToInterceptNM.toFixed(2);
       } 
 

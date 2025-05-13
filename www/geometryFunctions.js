@@ -106,16 +106,48 @@ export function calculateMapBounds(widthPx, heightPx, lat, lon, radarRadiusNM, s
 
 export function calculateDistanceToIntercept(lat, lon, bearing, targetLinePointLat, targetLinePointLon, targetBearing) {
   // Calculate the distance to intercept a target line given a starting point, bearing, and target line point
-  const gradient = Math.tan(convert.degreesToRadians(bearing));
-  const yIntercept = lat - gradient * lon;
-  
-  const targetGradient = Math.tan(convert.degreesToRadians(targetBearing));
-  const targetYIntercept = targetLinePointLat - targetGradient * targetLinePointLon;
+  //use our position as 0,0
+  // and the target point x and y are the metres north and east of our position
 
-  const xIntercept = (targetYIntercept - yIntercept) / (gradient - targetGradient);
-  const yInterceptPoint = gradient * xIntercept + yIntercept;
-  const distance = calculateDistance(lat, lon, yInterceptPoint, xIntercept);
-  return distance;
+  const targetX = calculateDistance(lat, lon, lat, targetLinePointLon);
+  const targetY = calculateDistance(lat, lon, targetLinePointLat, lon);
+
+  console.log("distance To TargetX: " + targetX);
+  console.log("distanceToTargetY: " + targetY);
+
+  
+  const gradient = Math.tan(convert.degreesToRadians(90-bearing ));
+  console.log("gradient: " + gradient);
+  
+  //our y intercept is 0 as we are at 0,0
+  
+
+  const targetGradient = Math.tan(convert.degreesToRadians(90 - targetBearing + 180));
+  console.log("targetGradient: " + targetGradient);
+
+  const targetYIntercept = targetY - targetGradient * targetX;
+  console.log("targetYIntercept: " + targetYIntercept);
+  
+  const xInterceptPoint = targetYIntercept / (gradient - targetGradient);
+  console.log("xInterceptPoint: " + xInterceptPoint);
+  const yInterceptPoint = gradient * xInterceptPoint;
+  console.log("yInterceptPoint: " + yInterceptPoint);
+
+
+
+  const distanceToTarget = Math.sqrt(xInterceptPoint * xInterceptPoint + yInterceptPoint * yInterceptPoint);
+  console.log("distanceToTarget: " + distanceToTarget);
+
+  const travellingSouth = bearing > 90 && bearing < 270;
+  const travellingEast = bearing > 0 && bearing < 180;
+
+  const targetIsSouth = yInterceptPoint < 0;
+  const targetIsEast = xInterceptPoint > 0;
+
+
+  var travellingTowards = (travellingSouth && targetIsSouth) && (travellingEast && targetIsEast);
+
+  return distanceToTarget * (travellingTowards ? 1 : -1); // distance in metres
 }
 
 
