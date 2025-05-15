@@ -295,8 +295,11 @@ class PlaneList {
         } else if (targetHeading < 0) {
             targetHeading += 360; // wrap around
         }
+
+        
         if (index >= 0 && index < this.nPlanes) {
             this.targetHeadings[index] = targetHeading; // set target heading to current heading
+            console.log("Set target heading: " + targetHeading + " for plane: " + this.flightNumbers[index]);
         } else {
             console.log("Invalid index. Cannot set target heading.");
         }
@@ -347,6 +350,7 @@ class PlaneList {
         const turnCircumference = this.speeds[index] * turnTime90 * 4; // circumference of turn
         const turnRadius = turnCircumference / (2 * Math.PI); // radius of turn
         return turnRadius; // return radius of turn
+    }
 
     addPlane(flightNumber, type, squawk, latitude, longitude, altitudeFt, speedKts, heading, verticalSpeedFpM) {
         if (this.nPlanes >= this.maxPlanes) {

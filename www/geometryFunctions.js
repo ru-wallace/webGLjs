@@ -112,31 +112,31 @@ export function calculateDistanceToIntercept(lat, lon, bearing, targetLinePointL
   const targetX = calculateDistance(lat, lon, lat, targetLinePointLon);
   const targetY = calculateDistance(lat, lon, targetLinePointLat, lon);
 
-  console.log("distance To TargetX: " + targetX);
-  console.log("distanceToTargetY: " + targetY);
+  //console.log("distance To TargetX: " + targetX);
+  //console.log("distanceToTargetY: " + targetY);
 
   
   const gradient = Math.tan(convert.degreesToRadians(90-bearing ));
-  console.log("gradient: " + gradient);
+  //console.log("gradient: " + gradient);
   
   //our y intercept is 0 as we are at 0,0
   
 
   const targetGradient = Math.tan(convert.degreesToRadians(90 - targetBearing + 180));
-  console.log("targetGradient: " + targetGradient);
+  //console.log("targetGradient: " + targetGradient);
 
   const targetYIntercept = targetY - targetGradient * targetX;
-  console.log("targetYIntercept: " + targetYIntercept);
+  //console.log("targetYIntercept: " + targetYIntercept);
   
   const xInterceptPoint = targetYIntercept / (gradient - targetGradient);
-  console.log("xInterceptPoint: " + xInterceptPoint);
+  //console.log("xInterceptPoint: " + xInterceptPoint);
   const yInterceptPoint = gradient * xInterceptPoint;
-  console.log("yInterceptPoint: " + yInterceptPoint);
+  //console.log("yInterceptPoint: " + yInterceptPoint);
 
 
 
   const distanceToTarget = Math.sqrt(xInterceptPoint * xInterceptPoint + yInterceptPoint * yInterceptPoint);
-  console.log("distanceToTarget: " + distanceToTarget);
+  //console.log("distanceToTarget: " + distanceToTarget);
 
   const travellingSouth = bearing > 90 && bearing < 270;
   const travellingEast = bearing > 0 && bearing < 180;

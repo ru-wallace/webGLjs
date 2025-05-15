@@ -255,9 +255,35 @@ async function main() {
         showTarget = true;
 
         const distanceToIntercept = geom.calculateDistanceToIntercept(plane.latitude, plane.longitude, plane.heading, runways[0].latitude, runways[0].longitude, runways[0].approaches[0].bearing );
+
+
+        var angleToIntercept = Math.abs(plane.heading - runways[0].approaches[0].bearing);
+        if (angleToIntercept > 180) {
+          angleToIntercept = 360 - angleToIntercept;
+        }
         const distanceToInterceptNM = convert.metresToNauticalMiles(distanceToIntercept);
         
         document.querySelector("#dti").innerText = distanceToInterceptNM.toFixed(2);
+        document.querySelector("#ati").innerText = angleToIntercept.toFixed(2);
+
+        if (angleToIntercept < 60) {
+          const angleToInterceptRad = convert.degreesToRadians(angleToIntercept);
+          
+          const turnRadius = Math.abs(game.planeList.getTurnRadius(plane.index));
+          
+          const turnCentreDistanceToIntercept = Math.abs((Math.abs(distanceToIntercept)+turnRadius)*Math.sin(angleToInterceptRad));
+          console.log("turn radius: " + turnRadius);
+          console.log("turn Centre distance to intercept: " + turnCentreDistanceToIntercept);
+          console.log("distance to turn start:" + Math.abs(turnCentreDistanceToIntercept - turnRadius))
+          if (Math.abs(turnCentreDistanceToIntercept-turnRadius)< 10) {
+            if (plane.targetHeading != runways[0].approaches[0].bearing) {
+              game.planeList.setTargetHeading(plane.index, runways[0].approaches[0].bearing);
+              game.planeList.setTargetSpeed(plane.index, 180);
+              
+            }
+
+          }
+        }
       } 
 
 
