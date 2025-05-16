@@ -138,7 +138,7 @@ class ATCMap {
       throw new Error("numPoints must be at least 3");
     }
     //console.log("Generating circle. radiusPX:" + radiusPx + " nPoints: " + numPoints + " lineWidth: " + lineThicknessPx);
-    const centre = { x: this.widthPx / 2, y: this.heightPx / 2 };
+    const centre = { x:0, y: 0 };
     const points = [];
 
     const innerRadiusPx = radiusPx - lineThicknessPx / 2;
@@ -185,7 +185,7 @@ class ATCMap {
       throw new Error("numPoints must be at least 3");
     }
     //console.log("Generating circle. radiusPX:" + radiusPx + " nPoints: " + numPoints + " lineWidth: " + lineThicknessPx);
-    const centre = { x: this.widthPx / 2, y: this.heightPx / 2 };
+    const centre = { x:0, y: 0 };
     const points = [];
 
 
@@ -284,7 +284,7 @@ class ATCMap {
     }
 
     console.log("Generating filled circle. radiusPX:" + radiusPx + " nPoints: " + numPoints);
-    const centre = { x: this.widthPx / 2, y: this.heightPx / 2 };
+    const centre = { x:0, y: 0 };
 
     const points = [centre.x, centre.y]; // Start with the centre point
     var indices = [];
@@ -318,7 +318,7 @@ class ATCMap {
   }
 
   generateArrowPoints(width, height) {
-    const centre = { x: this.widthPx / 2, y: this.heightPx / 2 };
+        const centre = { x:0, y: 0 };
     const points = [];
 
     const frontY = centre.y - (height * 0.5);
@@ -355,7 +355,7 @@ class ATCMap {
 
   generateRectangle(width, height, startIndex = 0) {
     console.log("Generating rectangle. width: " + width + " height: " + height + " startIndex: " + startIndex);
-    const centre = { x: this.widthPx / 2, y: this.heightPx / 2 };
+    const centre = { x:0, y: 0 };
     const points = [];
     //make pointer points
 

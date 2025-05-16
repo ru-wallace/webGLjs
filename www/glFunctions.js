@@ -195,7 +195,9 @@ export class GLInstance {
     setMatrix(this.gl, this.program, this.uniformLocations.uMatrix, uMatrix);
   }
   updateMatrix(heading, x, y, scaleX, scaleY, offsetX=0, offsetY=0) {
-    replaceMatrix(this.gl, this.matrix, heading, x, y, scaleX, scaleY, offsetX, offsetY);
+    const xShift = this.gl.canvas.clientWidth / 2;
+    const yShift = -this.gl.canvas.clientHeight / 2;
+    replaceMatrix(this.gl, this.matrix, heading, x, y, scaleX, scaleY, offsetX+xShift, offsetY-yShift);
     setMatrix(this.gl, this.program, this.uniformLocations.uMatrix, this.matrix);
   }
 
