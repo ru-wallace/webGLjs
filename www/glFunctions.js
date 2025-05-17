@@ -305,7 +305,7 @@ export class GLInstance {
   drawArrow(plane, color) {
     //console.log("Drawing plane triangle");
     const planeLocation = this.map.latLonToXY(plane.latitude, plane.longitude);
-    this.updateMatrix(plane.heading, planeLocation.x, planeLocation.y, 0.5, 0.5);
+    this.updateMatrix(plane.heading, planeLocation.x, planeLocation.y, 1, 1);
     // this.drawScene(this.shapes.arrow.elementStartIndex, this.shapes.arrow.nIndices, matrix, color, 0);
     this.drawShape(this.shapes.arrow, color, 0);
   }
@@ -313,7 +313,9 @@ export class GLInstance {
   drawTargetIndicator(plane, color) {
 
     const planeLocation = this.map.latLonToXY(plane.latitude, plane.longitude);
-    this.updateMatrix(plane.targetHeading, planeLocation.x, planeLocation.y, 1.5, plane.targetSpeed / 20, 0, -1);
+    const distanceInMinute = plane.targetSpeed * 60;
+    const distancePx = this.map.distanceMetresToPixels(distanceInMinute);
+    this.updateMatrix(plane.targetHeading, planeLocation.x, planeLocation.y, 1.5, distancePx/2, 0, -1);
     //this.drawScene(this.shapes.rectangle.elementStartIndex, this.shapes.rectangle.nIndices, matrix, color, 0);
     this.drawShape(this.shapes.rectangle, color, 0);
 
@@ -322,7 +324,9 @@ export class GLInstance {
     //console.log("Drawing plane pointer");
 
     const planeLocation = this.map.latLonToXY(plane.latitude, plane.longitude);
-    this.updateMatrix(plane.heading, planeLocation.x, planeLocation.y, 1.5, plane.speed / 20, 0, -1);
+    const distanceInMinute = plane.speed * 60;
+    const distancePx = this.map.distanceMetresToPixels(distanceInMinute);
+    this.updateMatrix(plane.heading, planeLocation.x, planeLocation.y, 1.5, distancePx/2, 0, -1);
     //this.drawScene(this.shapes.rectangle.elementStartIndex, this.shapes.rectangle.nIndices, matrix, color, 0);
     this.drawShape(this.shapes.rectangle, color, 0);
 
@@ -345,9 +349,9 @@ export class GLInstance {
     if (drawTarget && (plane.speed != plane.targetSpeed || plane.heading != plane.targetHeading)) {
       this.drawTargetIndicator(plane, targetIndicatorColor);
     }
-    //this.drawPlaneSpeedIndicator(plane, speedIndicatorColor);
+    this.drawPlaneSpeedIndicator(plane, speedIndicatorColor);
     
-    //this.drawCircle(plane, circleColor);
+    this.drawCircle(plane, circleColor);
     this.drawArrow(plane, arrowColor);
     
   }

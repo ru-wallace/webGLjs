@@ -1,69 +1,170 @@
 <html>
-    <head>
-        <title>WebGL</title>
-       <!-- <script
+
+<head>
+  <title>WebGL</title>
+  <!-- <script
       src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.8.1/gl-matrix-min.js"
       integrity="sha512-zhHQR0/H5SEBL3Wn6yYSaTTZej12z0hVZKOv3TwCUXT1z5qeqGcXJLLrbERYRScEDDpYIJhPC1fk31gqR783iQ=="
       crossorigin="anonymous"
       defer></script> -->
 
-        <script src="gl-matrix-min.js" defer></script>
-        <script src="index.js" type="module"></script>
-        <style>
-        body {
-          margin: 0;
-          overflow: hidden;
-        }
-        #container {
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-        }
-        #canvas, #text-canvas {
-          display: block;
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-        }
-        #info-bar {
-          position: absolute;
-          bottom: 0;
-          left: 0;
-          width: 100%;
-          height: 30px;
-          background-color: rgba(0, 0, 0, 0.7);
-          color: green;
-          font-family: Arial, sans-serif;
-          font-size: 14px;
-          display: flex;
-          justify-content: space-around;
-          align-items: center;
-        }
-        </style>
-    </head>
-    <body>
-      <div id="container">
-        <canvas id="canvas" width="1000" height="1000"></canvas>
-        <canvas id="text-canvas" width="1000" height="1000"></canvas>
-        <div id="info-bar">
-          <div id="info-bar-text">WebGL2</div>
-          <div id="info-bar-text">Sim Speed: <span id="sim-speed"></span>x</div>
-          <div id="info-bar-text">Time: <span id="time"></span></div>
-          <div id="info-bar-text">Mouse: <span id="mouse"></span></div>
-          <div id="info-bar-text">Intercept: <span id="dti"></span>NM <span id="ati"></span>&deg;</span></div>
+  <script src="gl-matrix-min.js" defer></script>
+  <script src="index.js" type="module"></script>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+    }
 
-          <div id="info-bar-text">HOVER PLANE TO CONTROL</div>
-          <div id="info-bar-text">ALT: SCROLL / SHIFT+SIDESCROLL</div>
-          <div id="info-bar-text">HEADING: SHIFT+SCROLL / SIDESCROLL</div>
-          <div id="info-bar-text">SPEED: CTRL+SCROLL</div>
+    #container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: row;
+    }
 
-        </div>
+    .side-panel {
+      width: 200px;
+      background-color: rgb(65, 65, 65);
+      color: rgb(168, 226, 168);
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      display: flex;
+      flex-direction: column;
+      padding: 10px;
+    }
+
+    .side-panel.vertical {
+      height: 100%;
+      flex-direction: column;
+    }
+    .side-panel.horizontal {
+      width: 100%;
+      flex-direction: row;
+    }
+
+
+    #left-panel .info-item {
+      margin-bottom: 10px;
+    }
+
+    #main-panel {
+      flex: 1;
+      position: relative;
+      background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    #right-panel {
+      width: 200px;
+      background-color: rgba(255, 255, 255, 0.1);
+      color: green;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      display: flex;
+      flex-direction: column;
+      padding: 10px;
+    }
+
+    #right-panel .info-item {
+      margin-bottom: 10px;
+    }
+
+    #bottom-bar {
+      background-color: rgba(255, 255, 255, 0.1);
+      color: green;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      padding-block: 5px;
+    }
+
+    #canvas,
+    #text-canvas {
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    #bottom-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 30px;
+      background-color: rgba(255, 255, 255, 0.1);
+      color: green;
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      padding-block: 5px;
+    }
+
+    .plane-info {
+      background-color: rgba(255, 255, 255, 0.1);
+      color: rgb(0, 255, 0);
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      display: flex;
+      flex-direction: column;
+      padding: 10px;
+    }
+
+    .plane-info .info-item {
+      margin-bottom: 10px;
+    }
+
+    .hidden {
+      display: none!important;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="container">
+    <div id="left-panel" class="side-panel vertical">
+      <div class="plane-info" id="hovered-plane">
+        <div class="info-item">Plane</div>
+        <div class="info-item">ID: <span class="id"></span></div>
+        <div class="info-item">Callsign: <span class="callsign"></span></div>
+        <div class="info-item">Type: <span class="type"></span></div>
+        <div class="info-item">Squawk: <span class="squawk"></span></div>
+        <div class="info-item">Position: <span class="position"></span></div>
+        <div class="info-item">Altitude: <span class="altitude"></span><span class="altitude-target hidden"></span></div>
+        <div class="info-item">Heading: <span class="heading"></span><span class="heading-target hidden"></span></div>
+        <div class="info-item">Vertical Speed: <span class="vertical-speed"></span></div>
+        <div class="info-item">Speed: <span class="speed"></span><span class="speed-target hidden"></span></div>
       </div>
-      <script src="info.js"></script>
-        </body>
+
+    </div>
+    <div id="main-panel">
+      <canvas id="canvas" width="1000" height="1000"></canvas>
+      <canvas id="text-canvas" width="1000" height="1000"></canvas>
+      <div id="bottom-bar">
+        <div class="info-item">WebGL2</div>
+        <div class="info-item">Sim Speed: <span id="sim-speed"></span>x</div>
+        <div class="info-item">Time: <span id="time"></span></div>
+        <div class="info-item">Mouse: <span id="mouse"></span></div>
+        <div class="info-item">Intercept: <span id="dti"></span>NM <span id="ati"></span>&deg;</span></div>
+
+        <div class="info-item">HOVER PLANE TO CONTROL</div>
+        <div class="info-item">ALT: SCROLL / SHIFT+SIDESCROLL</div>
+        <div class="info-item">HEADING: SHIFT+SCROLL / SIDESCROLL</div>
+        <div class="info-item">SPEED: CTRL+SCROLL</div>
         
+      </div>
+    </div>
+  </div>
+  <script src="info.js"></script>
+</body>
+
 </html>

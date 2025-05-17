@@ -1,5 +1,5 @@
 import { Game } from "./gameData.js";
-import { generateShapes } from "./shapes.js";
+import * as shapeFuncs from "./shapes.js";
 import { GLInstance } from "./glFunctions.js";
 import * as utils from "./utils.js";
 import * as convert from "./conversions.js";
@@ -122,7 +122,7 @@ async function main() {
 
   console.log("Min Horizontal Separation: " + game.planeList.minimumHorizontalSeparation);
   console.log("To pixels: " + game.map.distanceMetresToPixels(game.planeList.minimumHorizontalSeparation));
-  const shapes = generateShapes(game.map, {
+  const shapes = shapeFuncs.generateShapes({
     radarCircle: {
       radius: game.map.distanceMetresToPixels(convert.nauticalMilesToMetres(game.radarRadius)),
       nPoints: 100,
@@ -167,8 +167,10 @@ async function main() {
 
     now *= 0.001; // convert to seconds
 
-    deltaTime = (now - then) * game.simulationSpeed; // seconds since last frame multiplied by simulation speed
+    deltaTime = (now - then);
     then = now;
+
+    game.tick(deltaTime);
 
     glO.setViewport();
     txtCanv.clear();
@@ -204,7 +206,6 @@ async function main() {
 
 
     if (!game.pause && game.planeList.nPlanes > 0) {
-      game.planeList.updateAllPlanes(deltaTime); // update all planes
       separationIncidents = game.planeList.getSeparationIncidents(); // get separation incidents
 
     }
@@ -225,6 +226,12 @@ async function main() {
       {
         game.planeList.setHoveredPlane(-1);
       }
+    }
+
+    var displayPlane = game.planeList.getSelectedPlaneIndex();
+    if (displayPlane == -1)
+    {
+      displayPlane = game.planeList.getHoveredPlaneIndex();
     }
 
     let planeSeparationIncidentBoolArray = new Array(game.planeList.nPlanes).fill(false);
@@ -249,7 +256,7 @@ async function main() {
       var showTarget = false;
 
       let targetHeadingColor = [0.0, 0.0, 0.0, 0.0];
-      if (game.planeList.isHoveredPlane(i)) {
+      if (i == displayPlane) {
         arrowColor = [1.0, 1.0, 1.0, 1];
         targetHeadingColor = [1.0, 1.0, 0.0, 1];
         showTarget = true;
@@ -272,9 +279,9 @@ async function main() {
           const turnRadius = Math.abs(game.planeList.getTurnRadius(plane.index));
           
           const turnCentreDistanceToIntercept = Math.abs((Math.abs(distanceToIntercept)+turnRadius)*Math.sin(angleToInterceptRad));
-          console.log("turn radius: " + turnRadius);
-          console.log("turn Centre distance to intercept: " + turnCentreDistanceToIntercept);
-          console.log("distance to turn start:" + Math.abs(turnCentreDistanceToIntercept - turnRadius))
+          //console.log("turn radius: " + turnRadius);
+          //console.log("turn Centre distance to intercept: " + turnCentreDistanceToIntercept);
+          //console.log("distance to turn start:" + Math.abs(turnCentreDistanceToIntercept - turnRadius))
           if (Math.abs(turnCentreDistanceToIntercept-turnRadius)< 10) {
             if (plane.targetHeading != runways[0].approaches[0].bearing) {
               game.planeList.setTargetHeading(plane.index, runways[0].approaches[0].bearing);
@@ -292,7 +299,7 @@ async function main() {
       let historyColor = [0.0, 0.8, 0.0, 1];
 
       if (game.showHistory) {
-        //console.log("Plane: " + plane.flightNumber + " has history: " + plane.positionHistory.length);
+        //console.log("Plane: " + plane.callSign + " has history: " + plane.positionHistory.length);
         for (let j = 0; j < plane.positionHistory.length; j++) {
           let historyPoint = plane.positionHistory.getPosition(j);
           let distance = geom.calculateDistance(historyPoint.latitude, historyPoint.longitude, plane.latitude, plane.longitude);

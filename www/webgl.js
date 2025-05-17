@@ -175,28 +175,28 @@ function initShaderProgram(gl, vsSource, fsSource) {
     
 
     if (mouseOver) {
-      if (hoveredPlane != plane.flightNumber) {
+      if (hoveredPlane != plane.callSign) {
         if (hoveredPlane != -1) {
           if (distance < hoveredPlaneDistance) {
-            hoveredPlane = plane.flightNumber;
+            hoveredPlane = plane.callSign;
             hoveredPlaneDistance = distance;
             console.log("Hovered plane: " + hoveredPlane + " distance: " + convert.metresToNauticalMiles(distance)+"NM");
           }
         } else {
-          hoveredPlane = plane.flightNumber;
+          hoveredPlane = plane.callSign;
           hoveredPlaneDistance = distance;
           console.log("Hovered plane: " + hoveredPlane + " distance: " + convert.metresToNauticalMiles(distance)+"NM");
         }
       }
     } else {
-      if (hoveredPlane == plane.flightNumber) {
+      if (hoveredPlane == plane.callSign) {
         hoveredPlane = -1;
         hoveredPlaneDistance = 0;
         console.log("Reset hovered plane: " + hoveredPlane);
       }
     }
 
-    let hovered = (hoveredPlane == plane.flightNumber) ? true : false;
+    let hovered = (hoveredPlane == plane.callSign) ? true : false;
     let mouseOverScale = hovered ? 1.5 : 1.0;
 
     if (hovered) {
@@ -232,7 +232,7 @@ function initShaderProgram(gl, vsSource, fsSource) {
     const anchorY = planePosition.y + PLANE_TEXT_OFFSET_Y;
     textContext.font = `${PLANE_TEXT_FONT_SIZE}px ${PLANE_TEXT_FONT_FACE}`;
     textContext.fillStyle = PLANE_TEXT_COLOR;
-    textContext.fillText(plane.flightNumber, anchorX,anchorY);
+    textContext.fillText(plane.callSign, anchorX,anchorY);
     textContext.fillText(plane.type, anchorX, anchorY + PLANE_TEXT_FONT_SIZE);
     let speedText = Math.round(plane.speed) + "KTS";
     if (Math.abs(plane.speed - plane.targetSpeed) > 0.1) {

@@ -66,7 +66,7 @@ export class Canv {
     const anchorY = planePosition.y + this.planeTextOffset.y;
     this.context.font = `${this.fontSize}px ${this.fontFace}`;
     this.context.fillStyle = this.color;
-    this.context.fillText(plane.flightNumber, anchorX, anchorY);
+    this.context.fillText(plane.callSign, anchorX, anchorY);
     this.context.fillText(plane.type, anchorX, anchorY + this.fontSize);
     let speedText = Math.round(convert.metresPerSecondToKts(plane.speed)) + "KTS";
 
@@ -140,7 +140,7 @@ export function drawPlaneText(textContext, plane) {
   const anchorY = planePosition.y + PLANE_TEXT_OFFSET_Y;
   textContext.font = `${PLANE_TEXT_FONT_SIZE}px ${PLANE_TEXT_FONT_FACE}`;
   textContext.fillStyle = PLANE_TEXT_COLOR;
-  textContext.fillText(plane.flightNumber, anchorX,anchorY);
+  textContext.fillText(plane.callSign, anchorX,anchorY);
   textContext.fillText(plane.type, anchorX, anchorY + PLANE_TEXT_FONT_SIZE);
   let speedText = Math.round(plane.speed) + "KTS";
   if (Math.abs(plane.speed - plane.targetSpeed) > 0.1) {
