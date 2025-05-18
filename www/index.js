@@ -6,11 +6,13 @@ import * as convert from "./conversions.js";
 import * as geom from "./geometryFunctions.js";
 import * as canv from "./canvasFunctions.js";
 
-async function main() {
+async function main()
+{
   const canvas = document.querySelector('#canvas');
 
   const gl = canvas.getContext('webgl2');
-  if (!gl) {
+  if (!gl)
+  {
     alert('Failed to get the rendering context for WebGL');
     return;
   }
@@ -50,23 +52,23 @@ async function main() {
     frequency: 115.5,
     range: 100,
   },
-  {
-    name: "CVL",
-    latitude: 56.02460152231144,
-    longitude:  -4.076019368863338,
-    type: "VOR-DME",
-    frequency: 115.5,
-    range: 100,
-  },
-  {
-    name: "GLW",
-    latitude: 55.870507,
-    longitude: -4.445715,
-    type: "IDB",
-    frequency: 115.5,
-    range: 100,
-    labelDirection: "NW"
-  },
+    {
+      name: "CVL",
+      latitude: 56.02460152231144,
+      longitude: -4.076019368863338,
+      type: "VOR-DME",
+      frequency: 115.5,
+      range: 100,
+    },
+    {
+      name: "GLW",
+      latitude: 55.870507,
+      longitude: -4.445715,
+      type: "IDB",
+      frequency: 115.5,
+      range: 100,
+      labelDirection: "NW"
+    },
 
   );
 
@@ -91,7 +93,7 @@ async function main() {
     latitude: middlelat,
     longitude: middlelon,
     altitude: convert.feetToMetres(26),
-    approaches:[ {
+    approaches: [{
       type: "ILS",
       runway: "05",
       bearing: 50,
@@ -99,15 +101,15 @@ async function main() {
       length: convert.nauticalMilesToMetres(10),
       glideslope: 3,
     },
-      {
-        type: "ILS",
-        runway: "23",
-        bearing: 230,
-        frequency: 110.5,
-        length: convert.nauticalMilesToMetres(10),
-        glideslope: 3,
-      }
-  ]
+    {
+      type: "ILS",
+      runway: "23",
+      bearing: 230,
+      frequency: 110.5,
+      length: convert.nauticalMilesToMetres(10),
+      glideslope: 3,
+    }
+    ]
   });
 
 
@@ -161,7 +163,8 @@ async function main() {
   var nearestPlane;
   var mouseLatLon;
 
-  function render(now) {
+  function render(now)
+  {
     utils.resizeCanvasToDisplaySize(canvas);
     utils.resizeCanvasToDisplaySize(textCanvas);
 
@@ -178,26 +181,31 @@ async function main() {
     glO.clearCanvas();
     glO.drawRadarCircle([0.0, 0.5, 0.0, 1]);
 
-    for (let i = 0; i < navAids.length; i++) {
+    for (let i = 0; i < navAids.length; i++)
+    {
       let navAid = navAids[i];
       txtCanv.drawNavAidText(navAid);
       let color = [0.0, 0.5, 0.0, 1];
-      if (navAid.type === "VOR-DME") {
+      if (navAid.type === "VOR-DME")
+      {
         color = [0.5, 0.5, 1.0, 1];
         glO.drawVorSymbol(navAid.latitude, navAid.longitude, color);
-      } else if (navAid.type === "IDB") {
+      } else if (navAid.type === "IDB")
+      {
         color = [0.5, 1.0, 0.5, 1];
         glO.drawIdbSymbol(navAid.latitude, navAid.longitude, color);
       }
     }
 
-    for (let i = 0; i < runways.length; i++) {
+    for (let i = 0; i < runways.length; i++)
+    {
       let runway = runways[i];
       let color = [0.5, 0.5, 0.5, 1];
       glO.drawRunway(runway, color);
-      if (runway.approaches !== undefined) {
+      if (runway.approaches !== undefined)
+      {
         color = [0.5, 0.5, 1.0, 1];
-        glO.drawIlsApproach(runway,color);
+        glO.drawIlsApproach(runway, color);
       }
     }
 
@@ -205,7 +213,8 @@ async function main() {
 
 
 
-    if (!game.pause && game.planeList.nPlanes > 0) {
+    if (!game.pause && game.planeList.nPlanes > 0)
+    {
       separationIncidents = game.planeList.getSeparationIncidents(); // get separation incidents
 
     }
@@ -236,12 +245,14 @@ async function main() {
 
     let planeSeparationIncidentBoolArray = new Array(game.planeList.nPlanes).fill(false);
 
-    for (let i = 0; i < separationIncidents.length; i++) {
+    for (let i = 0; i < separationIncidents.length; i++)
+    {
       planeSeparationIncidentBoolArray[separationIncidents[i].plane1] = true;
       planeSeparationIncidentBoolArray[separationIncidents[i].plane2] = true;
     }
 
-    for (let i = 0; i < game.planeList.nPlanes; i++) {
+    for (let i = 0; i < game.planeList.nPlanes; i++)
+    {
       let plane = game.planeList.getPlaneByIndex(i);
 
 
@@ -249,58 +260,75 @@ async function main() {
       let arrowColor = circleColor;
       let speedIndicatorColor = circleColor;
 
-      if (planeSeparationIncidentBoolArray[i]) {
+      if (planeSeparationIncidentBoolArray[i])
+      {
         circleColor = [1, 0, 0, 1];
       }
 
       var showTarget = false;
 
       let targetHeadingColor = [0.0, 0.0, 0.0, 0.0];
-      if (i == displayPlane) {
+      if (i == displayPlane)
+      {
         arrowColor = [1.0, 1.0, 1.0, 1];
         targetHeadingColor = [1.0, 1.0, 0.0, 1];
         showTarget = true;
 
-        const distanceToIntercept = geom.calculateDistanceToIntercept(plane.latitude, plane.longitude, plane.heading, runways[0].latitude, runways[0].longitude, runways[0].approaches[0].bearing );
-
-
-        var angleToIntercept = Math.abs(plane.heading - runways[0].approaches[0].bearing);
-        if (angleToIntercept > 180) {
-          angleToIntercept = 360 - angleToIntercept;
-        }
-        const distanceToInterceptNM = convert.metresToNauticalMiles(distanceToIntercept);
+        const distanceToIntercept = geom.calculateDistanceToIntercept(plane.latitude, plane.longitude, plane.heading, runways[0].latitude, runways[0].longitude, runways[0].approaches[0].bearing);
         
-        document.querySelector("#dti").innerText = distanceToInterceptNM.toFixed(2);
-        document.querySelector("#ati").innerText = angleToIntercept.toFixed(2);
-
-        if (angleToIntercept < 60) {
-          const angleToInterceptRad = convert.degreesToRadians(angleToIntercept);
-          
-          const turnRadius = Math.abs(game.planeList.getTurnRadius(plane.index));
-          
-          const turnCentreDistanceToIntercept = Math.abs((Math.abs(distanceToIntercept)+turnRadius)*Math.sin(angleToInterceptRad));
-          //console.log("turn radius: " + turnRadius);
-          //console.log("turn Centre distance to intercept: " + turnCentreDistanceToIntercept);
-          //console.log("distance to turn start:" + Math.abs(turnCentreDistanceToIntercept - turnRadius))
-          if (Math.abs(turnCentreDistanceToIntercept-turnRadius)< 10) {
-            if (plane.targetHeading != runways[0].approaches[0].bearing) {
-              game.planeList.setTargetHeading(plane.index, runways[0].approaches[0].bearing);
-              game.planeList.setTargetSpeed(plane.index, 180);
-              
-            }
-
+        if (distanceToIntercept !== null) 
+        {
+          var angleToIntercept = Math.abs(plane.heading - runways[0].approaches[0].bearing);
+          if (angleToIntercept > 180)
+          {
+            angleToIntercept = 360 - angleToIntercept;
           }
+          
+
+          const distanceToInterceptNM = convert.metresToNauticalMiles(distanceToIntercept);
+        
+          document.querySelector("#dti").innerText = distanceToInterceptNM.toFixed(2);  
+          document.querySelector("#ati").innerText = angleToIntercept.toFixed(2);
+
+          if (angleToIntercept < 60)
+          {
+            const angleToInterceptRad = convert.degreesToRadians(angleToIntercept);
+
+            const turnRadius = Math.abs(game.planeList.getTurnRadius(plane.index));
+
+            const turnCentreDistanceToIntercept = Math.abs((Math.abs(distanceToIntercept) + turnRadius) * Math.sin(angleToInterceptRad));
+            //console.log("turn radius: " + turnRadius);
+            //console.log("turn Centre distance to intercept: " + turnCentreDistanceToIntercept);
+            //console.log("distance to turn start:" + Math.abs(turnCentreDistanceToIntercept - turnRadius))
+            if (Math.abs(turnCentreDistanceToIntercept - turnRadius) < 10 && distanceToInterceptNM > 0)
+            {
+              console.log("LOCALISING");
+              if (plane.targetHeading != runways[0].approaches[0].bearing)
+              {
+                game.planeList.setTargetHeading(plane.index, runways[0].approaches[0].bearing);
+                game.planeList.setTargetSpeed(plane.index, 180);
+
+              }
+
+            }
+          }
+        } else
+        {
+          document.querySelector("#dti").innerText = "N/A";
+          document.querySelector("#ati").innerText = "N/A";
         }
-      } 
+      }
 
 
 
 
       let historyColor = [0.0, 0.8, 0.0, 1];
 
-      if (game.showHistory) {
+      if (game.showHistory)
+      {
         //console.log("Plane: " + plane.callSign + " has history: " + plane.positionHistory.length);
-        for (let j = 0; j < plane.positionHistory.length; j++) {
+        for (let j = 0; j < plane.positionHistory.length; j++)
+        {
           let historyPoint = plane.positionHistory.getPosition(j);
           let distance = geom.calculateDistance(historyPoint.latitude, historyPoint.longitude, plane.latitude, plane.longitude);
           //console.log("Distance: " + distance);
@@ -316,7 +344,8 @@ async function main() {
 
     }
 
-    if (now >=0) {
+    if (now >= 0)
+    {
       requestAnimationFrame(render);
     }
 

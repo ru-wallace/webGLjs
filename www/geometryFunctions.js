@@ -122,20 +122,20 @@ export function calculateDistanceToIntercept(lat, lon, bearing, targetLinePointL
   //our y intercept is 0 as we are at 0,0
   
 
-  const targetGradient = Math.tan(convert.degreesToRadians(90 - targetBearing + 180));
+  const targetGradient = Math.tan(convert.degreesToRadians(90 - targetBearing));
   //console.log("targetGradient: " + targetGradient);
 
   const targetYIntercept = targetY - targetGradient * targetX;
   //console.log("targetYIntercept: " + targetYIntercept);
   
-  const xInterceptPoint = targetYIntercept / (gradient - targetGradient);
-  //console.log("xInterceptPoint: " + xInterceptPoint);
+  const xInterceptPoint = targetYIntercept / (gradient - targetGradient); 
+  // console.log("xInterceptPoint: " + xInterceptPoint);
   const yInterceptPoint = gradient * xInterceptPoint;
-  //console.log("yInterceptPoint: " + yInterceptPoint);
+  // console.log("yInterceptPoint: " + yInterceptPoint);
 
 
 
-  const distanceToTarget = Math.sqrt(xInterceptPoint * xInterceptPoint + yInterceptPoint * yInterceptPoint);
+  const distanceToIntercept = Math.sqrt(xInterceptPoint * xInterceptPoint + yInterceptPoint * yInterceptPoint);
   //console.log("distanceToTarget: " + distanceToTarget);
 
   const travellingSouth = bearing > 90 && bearing < 270;
@@ -143,11 +143,33 @@ export function calculateDistanceToIntercept(lat, lon, bearing, targetLinePointL
 
   const targetIsSouth = yInterceptPoint < 0;
   const targetIsEast = xInterceptPoint > 0;
+  // console.log("travellingSouth: " + travellingSouth);
+  // console.log("travellingEast: " + travellingEast);
+  // console.log("targetIsSouth: " + targetIsSouth);
+  // console.log("targetIsEast: " + targetIsEast);
+
+  
+  const distanceToTarget = Math.sqrt(targetX * targetX + targetY * targetY);
+  const distanceTargetToIntercept = Math.sqrt((targetX - xInterceptPoint) * (targetX - xInterceptPoint) + (targetY - yInterceptPoint) * (targetY - yInterceptPoint));
+
+  if (Math.abs(distanceToTarget) < Math.abs(distanceTargetToIntercept) || Math.abs(distanceToIntercept) > Math.abs(distanceToTarget))
+  {
+
+    return null;
+  }
+
+  var travellingTowards = (travellingSouth == targetIsSouth) && (travellingEast == targetIsEast);
 
 
-  var travellingTowards = (travellingSouth && targetIsSouth) && (travellingEast && targetIsEast);
+  
+  
 
-  return distanceToTarget * (travellingTowards ? 1 : -1); // distance in metres
+  return Math.abs(distanceToIntercept) * (travellingTowards ? 1 : -1); // distance in metres, negative if travelling away from target
+
+  //check if intercept point is between us and the target
+  
+  
+
 }
 
 
